@@ -1,0 +1,5 @@
+#ifndef FREESPEECH_DATABASE
+#define FREESPEECH_DATABASE
+
+
+#endif
