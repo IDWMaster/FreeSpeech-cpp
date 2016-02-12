@@ -2,6 +2,7 @@
 #define FREESPEECH_DATABASE
 
 #include <memory>
+#include <string.h>
 
 class IDisposable {
 public:
@@ -25,6 +26,8 @@ public:
  * @summary Serializes a NamedObject to a byte array. The resultant array can be freed with free();
  * */
 static inline void* NamedObject_Serialize(const NamedObject& obj, size_t& outsz) {
+  unsigned char* bytes = malloc(strlen(obj.id)+1+strlen(obj.name)+1+strlen(obj.parent)+1+strlen(obj.owner)+1+obj.bloblen);
+  memcpy(bytes,obj.id,strlen(obj.id)+1);
   
 }
 
