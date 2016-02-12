@@ -6,7 +6,7 @@
 
 int main(int argc, char** argv) {
 printf("======================================\n");
-printf("Free Speech Project\n")
+printf("Free Speech Project\n");
 printf("======================================\n");
 
 
