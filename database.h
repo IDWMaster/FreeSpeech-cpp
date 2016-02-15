@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string.h>
+#include "cppext/cppext.h"
 
 class IDisposable {
 public:
@@ -22,18 +23,46 @@ public:
   
 };
 
+
+
+
 /**
  * @summary Serializes a NamedObject to a byte array. The resultant array can be freed with free();
  * */
 static inline void* NamedObject_Serialize(const NamedObject& obj, size_t& outsz) {
-  unsigned char* bytes = malloc(strlen(obj.id)+1+strlen(obj.name)+1+strlen(obj.parent)+1+strlen(obj.owner)+1+obj.bloblen);
-  memcpy(bytes,obj.id,strlen(obj.id)+1);
+  outsz = strlen(obj.id)+1+strlen(obj.name)+1+strlen(obj.parent)+1+strlen(obj.owner)+1+obj.bloblen;
+  unsigned char* bytes = (unsigned char*)malloc(outsz);
+  System::BStream bstr(bytes,outsz);
+  bstr.Write(obj.id);
+  bstr.Write(obj.name);
+  bstr.Write(obj.parent);
+  bstr.Write(obj.owner);
+  memcpy(bstr.ptr,obj.blob,obj.bloblen);
+  return bytes;
+}
+/**
+ * @summary Deserializes a NamedObject from a byte array of size len.
+ * */
+static inline void NamedObject_Deserialize(const void* bytes, size_t len, NamedObject& obj) {
+  System::BStream str((unsigned char*)bytes,len);
+  
+  obj.id = str.ReadString();
+  obj.name = str.ReadString();
+  obj.parent = str.ReadString();
+  obj.owner = str.ReadString();
+  obj.bloblen = str.length;
+  obj.blob = str.Increment(obj.bloblen);
   
 }
 
 
+void DB_FindAuthority(const char* auth,void* thisptr, void(*callback)(void*,unsigned char*,size_t));
+
 void DB_ObjectLookup(const char* id,void* thisptr, void(*callback)(void*,const NamedObject&));
 void DB_FindByName(const char* name, const char* parentID, void* thisptr, void(*callback)(void*,const NamedObject&));
-
+/**
+ * @summary Attempts to insert a raw NamedObject into the database. Assumes that object has already been sanity-checked.
+ * */
+void DB_Insert(const NamedObject& obj);
 
 #endif

@@ -4,6 +4,8 @@
 #include <string.h>
 
 #include <mutex>
+#include <openssl/rsa.h>
+#include <openssl/sha.h>
 
 static std::mutex mtx;
 
@@ -12,6 +14,9 @@ public:
     sqlite3* db;
     sqlite3_stmt* getobj;
     sqlite3_stmt* findobj;
+    sqlite3_stmt* addobj;
+    sqlite3_stmt* findauth;
+    sqlite3_stmt* addauth;
   Database() {
     sqlite3_open("freespeech_db",&db);
     const char* parsed;
@@ -19,6 +24,12 @@ public:
     sqlite3_prepare(db,stmt,strlen(stmt),&getobj,&parsed);
     stmt = "SELECT * FROM DHT WHERE Name = ? AND Parent = ?";
     sqlite3_prepare(db,stmt,strlen(stmt),&findobj,&parsed);
+    stmt = "INSERT INTO DHT VALUES (?, ?, ?, ?, ?)";
+    sqlite3_prepare(db,stmt,strlen(stmt),&addobj,&parsed);
+    stmt = "SELECT * FROM Certificates WHERE Thumbprint = ?";
+    sqlite3_prepare(db,stmt,strlen(stmt),&findauth,&parsed);
+    stmt = "INSERT INTO Certificates VALUES (?, ?)";
+    sqlite3_prepare(db,stmt,strlen(stmt),&addauth,&parsed);
     
   }
 };
@@ -46,8 +57,29 @@ void DB_ObjectLookup(const char* id,void* thisptr, void(*callback)(void*,const N
    }
   }
 }
+void DB_Insert(const NamedObject& obj)
+{
+  std::unique_lock<std::mutex> l(mtx);
+  sqlite3_bind_text(db.addobj,1,obj.id,strlen(obj.id),0);
+  sqlite3_bind_text(db.addobj,2,obj.owner,strlen(obj.owner),0);
+  sqlite3_bind_text(db.addobj,3,obj.name,strlen(obj.name),0);
+  sqlite3_bind_text(db.addobj,4,obj.parent,strlen(obj.parent),0);
+  sqlite3_bind_blob(db.addobj,5,obj.blob,obj.bloblen,0);
+  while(sqlite3_step(db.addobj) != SQLITE_DONE){};
+  
+}
 
-
+void DB_FindAuthority(const char* auth,void* thisptr, void(*callback)(void*,unsigned char*,size_t)) {
+  std::unique_lock<std::mutex> l(mtx);
+  sqlite3_bind_text(db.findauth,1,auth,strlen(auth),0);
+  int val;
+  while((val = sqlite3_step(db.findauth)) != SQLITE_DONE) {
+    if(val == SQLITE_ROW) {
+      callback(thisptr,(unsigned char*)sqlite3_column_blob(db.findauth,0),sqlite3_column_bytes(db.findauth,0));
+    }
+  }
+  
+}
 void DB_FindByName(const char* name, const char* parentID,void* thisptr,void(*callback)(void*,const NamedObject&))
 {
   std::unique_lock<std::mutex> l(mtx);
@@ -67,7 +99,6 @@ void DB_FindByName(const char* name, const char* parentID,void* thisptr,void(*ca
      obj.blob  = (unsigned char*)sqlite3_column_blob(db.findobj,4);
      obj.bloblen = sqlite3_column_bytes(db.findobj,5);
      callback(thisptr,obj);
-     break;
    }
   
 }
