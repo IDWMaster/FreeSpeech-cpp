@@ -17,6 +17,7 @@ public:
     sqlite3_stmt* addobj;
     sqlite3_stmt* findauth;
     sqlite3_stmt* addauth;
+    sqlite3_stmt* enumprivate;
   Database() {
     sqlite3_open("freespeech_db",&db);
     const char* parsed;
@@ -30,12 +31,29 @@ public:
     sqlite3_prepare(db,stmt,strlen(stmt),&findauth,&parsed);
     stmt = "INSERT INTO Certificates VALUES (?, ?)";
     sqlite3_prepare(db,stmt,strlen(stmt),&addauth,&parsed);
+    stmt = "SELECT * FROM Certificates WHERE isPrivate = true";
+    sqlite3_prepare(db,stmt,strlen(stmt),&enumprivate,&parsed);
+    
     
   }
 };
 
 
 static Database db;
+
+void DB_EnumPrivateKeys(void* thisptr,bool(*callback)(void*,unsigned char*, size_t))
+{
+  std::unique_lock<std::mutex> l(mtx);
+  int val;
+  while(val = (sqlite3_step(db.enumprivate)) != SQLITE_DONE) {
+    if(!callback(thisptr,(unsigned char*)sqlite3_column_blob(db.enumprivate,0),sqlite3_column_bytes(db.enumprivate,1))) {
+      break;
+    }
+  }
+  sqlite3_reset(db.enumprivate);
+}
+
+
 
 
 void DB_ObjectLookup(const char* id,void* thisptr, void(*callback)(void*,const NamedObject&))
@@ -56,6 +74,7 @@ void DB_ObjectLookup(const char* id,void* thisptr, void(*callback)(void*,const N
      break;
    }
   }
+  sqlite3_reset(db.getobj);
 }
 void DB_Insert(const NamedObject& obj)
 {
@@ -66,7 +85,7 @@ void DB_Insert(const NamedObject& obj)
   sqlite3_bind_text(db.addobj,4,obj.parent,strlen(obj.parent),0);
   sqlite3_bind_blob(db.addobj,5,obj.blob,obj.bloblen,0);
   while(sqlite3_step(db.addobj) != SQLITE_DONE){};
-  
+  sqlite3_reset(db.addobj);
 }
 
 void DB_FindAuthority(const char* auth,void* thisptr, void(*callback)(void*,unsigned char*,size_t)) {
@@ -76,10 +95,20 @@ void DB_FindAuthority(const char* auth,void* thisptr, void(*callback)(void*,unsi
   while((val = sqlite3_step(db.findauth)) != SQLITE_DONE) {
     if(val == SQLITE_ROW) {
       callback(thisptr,(unsigned char*)sqlite3_column_blob(db.findauth,0),sqlite3_column_bytes(db.findauth,0));
+      break;
     }
   }
-  
+  sqlite3_reset(db.findauth);
 }
+
+void DB_Insert_Certificate(const char* thumbprint,const unsigned char* cert, size_t bytes) {
+  std::unique_lock<std::mutex> l(mtx);
+  sqlite3_bind_text(db.addauth,1,thumbprint,strlen(thumbprint),0);
+  sqlite3_bind_blob(db.addauth,2,cert,bytes,0);
+  while(sqlite3_step(db.addauth) != SQLITE_DONE){};
+  sqlite3_reset(db.addauth);
+}
+
 void DB_FindByName(const char* name, const char* parentID,void* thisptr,void(*callback)(void*,const NamedObject&))
 {
   std::unique_lock<std::mutex> l(mtx);
@@ -89,6 +118,9 @@ void DB_FindByName(const char* name, const char* parentID,void* thisptr,void(*ca
   
   
   int val;
+  //NOTE: We could get multiple results here. There may be a number of entities claiming to own a given parent,name key.
+  //This is fine; as there may exist many different authority trees.
+  
   while((val = sqlite3_step(db.findobj)) != SQLITE_DONE) {
    if(val == SQLITE_ROW) {
      NamedObject obj;
@@ -99,7 +131,8 @@ void DB_FindByName(const char* name, const char* parentID,void* thisptr,void(*ca
      obj.blob  = (unsigned char*)sqlite3_column_blob(db.findobj,4);
      obj.bloblen = sqlite3_column_bytes(db.findobj,5);
      callback(thisptr,obj);
+     
    }
-  
 }
+sqlite3_reset(db.findobj);
 }
