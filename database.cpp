@@ -29,9 +29,9 @@ public:
     sqlite3_prepare(db,stmt,strlen(stmt),&addobj,&parsed);
     stmt = "SELECT * FROM Certificates WHERE Thumbprint = ?";
     sqlite3_prepare(db,stmt,strlen(stmt),&findauth,&parsed);
-    stmt = "INSERT INTO Certificates VALUES (?, ?)";
+    stmt = "INSERT INTO Certificates VALUES (?, ?, ?)";
     sqlite3_prepare(db,stmt,strlen(stmt),&addauth,&parsed);
-    stmt = "SELECT * FROM Certificates WHERE isPrivate = true";
+    stmt = "SELECT * FROM Certificates WHERE isPrivate = 1";
     sqlite3_prepare(db,stmt,strlen(stmt),&enumprivate,&parsed);
     
     
@@ -44,10 +44,13 @@ static Database db;
 void DB_EnumPrivateKeys(void* thisptr,bool(*callback)(void*,unsigned char*, size_t))
 {
   std::unique_lock<std::mutex> l(mtx);
-  int val;
-  while(val = (sqlite3_step(db.enumprivate)) != SQLITE_DONE) {
-    if(!callback(thisptr,(unsigned char*)sqlite3_column_blob(db.enumprivate,0),sqlite3_column_bytes(db.enumprivate,1))) {
+  int val = -1;
+  while((val = sqlite3_step(db.enumprivate)) != SQLITE_DONE) {
+    
+    if(val == SQLITE_ROW) {
+    if(!callback(thisptr,(unsigned char*)sqlite3_column_blob(db.enumprivate,1),sqlite3_column_bytes(db.enumprivate,1))) {
       break;
+    }
     }
   }
   sqlite3_reset(db.enumprivate);
@@ -101,10 +104,11 @@ void DB_FindAuthority(const char* auth,void* thisptr, void(*callback)(void*,unsi
   sqlite3_reset(db.findauth);
 }
 
-void DB_Insert_Certificate(const char* thumbprint,const unsigned char* cert, size_t bytes) {
+void DB_Insert_Certificate(const char* thumbprint,const unsigned char* cert, size_t bytes, bool isPrivate) {
   std::unique_lock<std::mutex> l(mtx);
   sqlite3_bind_text(db.addauth,1,thumbprint,strlen(thumbprint),0);
   sqlite3_bind_blob(db.addauth,2,cert,bytes,0);
+  sqlite3_bind_int(db.addauth,3,isPrivate);
   while(sqlite3_step(db.addauth) != SQLITE_DONE){};
   sqlite3_reset(db.addauth);
 }

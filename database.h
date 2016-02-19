@@ -65,7 +65,7 @@ void DB_FindByName(const char* name, const char* parentID, void* thisptr, void(*
  * */
 void DB_Insert(const NamedObject& obj);
 
-void DB_Insert_Certificate(const char* thumbprint,const unsigned char* cert, size_t bytes);
+void DB_Insert_Certificate(const char* thumbprint,const unsigned char* cert, size_t bytes, bool isPrivate);
 
 void DB_EnumPrivateKeys(void* thisptr,bool(*callback)(void*,unsigned char*, size_t));
 
