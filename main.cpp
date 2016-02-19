@@ -30,6 +30,7 @@ if(privkey == 0) {
   printf("Generating 4096-bit RSA key. This may take a while....\n");
   privkey = RSA_GenKey(4096);
   char thumbprint[33];
+  thumbprint[32] = 0;
   RSA_thumbprint(privkey,thumbprint);
   unsigned char* cert;
   size_t certlen;
@@ -38,6 +39,11 @@ if(privkey == 0) {
   DB_Insert_Certificate(thumbprint,cert,certlen,true);
   RSA_Free_Buffer(cert);
 }
+
+char thumbprint[33];
+thumbprint[32] = 0;
+RSA_thumbprint(privkey,thumbprint);
+printf("Your private key thumbprint is %s\n",thumbprint);
 
 return 0;
 }
