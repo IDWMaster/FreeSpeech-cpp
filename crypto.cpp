@@ -3,6 +3,16 @@
 #include <openssl/aes.h>
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
+#include <openssl/rand.h>
+
+
+
+void secure_random_bytes(void* output, size_t outlen)
+{
+  while(RAND_bytes((unsigned char*)output,outlen) == 0) {}
+}
+
+
 void aes_encrypt(const void* key, void* data)
 {
   AES_KEY mkey;
@@ -82,12 +92,22 @@ void hash_generate(const unsigned char* data, size_t len, char* output)
   size_t c = 0;
   for(size_t i = 0;i<16;i++) {
     output[c] = hex[mander[i] >> 4]; //Get lower 4 bits
-    c++;
+    c++; //This is how C++ was invented.
     output[c] = hex[((mander[i] << 4) & 0xff) >> 4];//Get upper 4 bits
-    c++;
+    c++; //This is how C++ was invented.
   }
   
 }
+
+void hash_generate(const unsigned char* data, size_t len, unsigned char* output)
+{
+
+  //Poor unsigned Charmander....
+  unsigned char mander[64];
+  SHA512(data,len,mander);
+  memcpy(output,mander,16);
+}
+
 
 
 void* RSA_GenKey(size_t bits)
@@ -110,6 +130,41 @@ void RSA_Free(void* key)
 {
   RSA_free((RSA*)key);
 }
+
+void* RSA_Encrypt(void* _key, unsigned char* input, size_t inlen)
+{
+  RSA* key = (RSA*)_key;
+  unsigned char* input;
+  size_t inlen;
+  void* outbuf = GlobalGrid::Buffer_Create(RSA_size(key));
+  unsigned char* output;
+  size_t outlen;
+  GlobalGrid::Buffer_Get(outbuf,&output,&outlen);
+  RSA_public_encrypt(inlen,input,output,key,RSA_PKCS1_PADDING);
+  return outbuf;
+}
+
+void* RSA_Decrypt(void* _key, unsigned char* input, size_t inlen)
+{
+  RSA* key = (RSA*)_key;
+  size_t outlen = RSA_size(key);
+  unsigned char* output = (unsigned char*)malloc(outlen);
+  int sz = RSA_private_decrypt(inlen,input,output,key,RSA_PKCS1_PADDING);
+  if(sz<=0) {
+    free(output);
+    return 0;
+  }
+  void* outbuf = GlobalGrid::Buffer_Create(sz);
+  void* a;
+  size_t b;
+  GlobalGrid::Buffer_Get(outbuf,&a,&b);
+  memcpy(a,output,sz);
+  free(output);
+  return outbuf;
+}
+
+
+
 
 
 
