@@ -4,6 +4,8 @@
 #include <memory>
 #include <string.h>
 #include "cppext/cppext.h"
+#include "GlobalGrid.h"
+#include "crypto.h"
 
 class IDisposable {
 public:
@@ -56,7 +58,21 @@ static inline void NamedObject_Deserialize(const void* bytes, size_t len, NamedO
 }
 
 
+
+
 void DB_FindAuthority(const char* auth,void* thisptr, void(*callback)(void*,unsigned char*,size_t));
+
+static inline void* DB_FindAuthority(const char* auth) {
+  void* a;
+  void(*b)(void*,unsigned char*,size_t);
+  void* retval = 0;
+  a = System::ABI::C([&](unsigned char* data, size_t len){
+    retval = RSA_Key(data,len);
+  },b);
+  DB_FindAuthority(auth,a,b);
+  return retval;
+}
+
 
 void DB_ObjectLookup(const char* id,void* thisptr, void(*callback)(void*,const NamedObject&));
 void DB_FindByName(const char* name, const char* parentID, void* thisptr, void(*callback)(void*,const NamedObject&));

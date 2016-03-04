@@ -53,12 +53,14 @@ void* RSA_Key(unsigned char* data, size_t len)
   }
 }
 
-void RSA_Export(void* key, bool includePrivate, unsigned char** output, size_t* outlen)
+void* RSA_Export(void* key, bool includePrivate)
 {
   RSA* msa = (RSA*)key;
   if(includePrivate) {
     size_t len = 2+BN_num_bytes(msa->n)+2+BN_num_bytes(msa->e)+2+BN_num_bytes(msa->d)+2+BN_num_bytes(msa->p)+2+BN_num_bytes(msa->q)+2+BN_num_bytes(msa->dmp1)+2+BN_num_bytes(msa->dmq1)+2+BN_num_bytes(msa->iqmp);
-    unsigned char* mander = new unsigned char[len];
+    void* retval = GlobalGrid::Buffer_Create(len);
+    unsigned char* mander;
+    GlobalGrid::Buffer_Get(retval,(void**)&mander,&len);
     System::BStream str(mander,len);
     WriteBig(str,msa->n);
     WriteBig(str,msa->e);
@@ -68,17 +70,16 @@ void RSA_Export(void* key, bool includePrivate, unsigned char** output, size_t* 
     WriteBig(str,msa->dmp1);
     WriteBig(str,msa->dmq1);
     WriteBig(str,msa->iqmp);
-    *output = mander;
-    *outlen = len;
+    return retval;
   }else {
     size_t len = 2+BN_num_bytes(msa->n)+2+BN_num_bytes(msa->e);
-    unsigned char* mander = new unsigned char[len];
+    void* retval = GlobalGrid::Buffer_Create(len);
+    unsigned char* mander;
+    GlobalGrid::Buffer_Get(retval,(void**)&mander,&len);
     System::BStream str(mander,len);
     WriteBig(str,msa->n);
     WriteBig(str,msa->e);
-    *output = mander;
-    *outlen = len;
-    
+    return retval;
   }
 }
 
@@ -120,10 +121,6 @@ void* RSA_GenKey(size_t bits)
 }
 
 
-void RSA_Free_Buffer(void* buffer)
-{
-  delete[] (unsigned char*)buffer;
-}
 
 
 void RSA_Free(void* key)
@@ -134,12 +131,10 @@ void RSA_Free(void* key)
 void* RSA_Encrypt(void* _key, unsigned char* input, size_t inlen)
 {
   RSA* key = (RSA*)_key;
-  unsigned char* input;
-  size_t inlen;
   void* outbuf = GlobalGrid::Buffer_Create(RSA_size(key));
   unsigned char* output;
   size_t outlen;
-  GlobalGrid::Buffer_Get(outbuf,&output,&outlen);
+  GlobalGrid::Buffer_Get(outbuf,(void**)&output,&outlen);
   RSA_public_encrypt(inlen,input,output,key,RSA_PKCS1_PADDING);
   return outbuf;
 }

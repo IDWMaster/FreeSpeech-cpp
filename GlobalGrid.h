@@ -2,7 +2,7 @@
 #define GG_VS
 #include <stddef.h>
 #include <memory>
-
+#include <string.h>
 namespace GlobalGrid {
 
 
@@ -27,6 +27,9 @@ public:
     value[0] = val[0];
     value[1] = val[1];
   }
+  bool operator<(const Guid& other) const {
+    return memcmp(value,other.value,16) < 0;
+  }
 };
 
 class ProtocolDriver {
@@ -40,6 +43,11 @@ public:
 
 void* Buffer_Create(size_t sz);
 void Buffer_Get(void* buffer,void** out, size_t* sz);
+
+template<typename T>
+static inline void Buffer_Get(void* buffer, T** out, size_t* sz) {
+  Buffer_Get(buffer,(void**)out,sz);
+}
 
 void GGObject_Free(void* obj);
 

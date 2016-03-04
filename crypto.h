@@ -29,7 +29,7 @@ void hash_generate(const unsigned char* data, size_t len, char* output);
 void hash_generate(const unsigned char* data, size_t len, unsigned char* output);
 
 
-void RSA_Export(void* key, bool includePrivate, unsigned char** output, size_t* len);
+void* RSA_Export(void* key, bool includePrivate);
 
 void secure_random_bytes(void* output, size_t outlen);
 
@@ -38,32 +38,64 @@ void secure_random_bytes(void* output, size_t outlen);
  * @summary Frees an RSA key
  * */
 void RSA_Free(void* key);
-/**
- * @summary Frees a buffer allocated with RSA_Export
- * */
-void RSA_Free_Buffer(void* buffer);
 
 
 void* RSA_Encrypt(void* key,unsigned char* buffer, size_t bufflen);
 
 void* RSA_Decrypt(void* key, unsigned char* buffer, size_t bufflen);
 
+static inline void ToHexString(unsigned char* data, size_t sz, char* output) {
+  
+  const char* hex = "0123456789ABCDEF";
+  size_t c = 0;
+  for(size_t i = 0;i<sz;i++) {
+    output[c] = hex[data[i] >> 4]; //Get lower 4 bits
+    c++; //This is how C++ was invented.
+    output[c] = hex[((data[i] << 4) & 0xff) >> 4];//Get upper 4 bits
+    c++; //This is how C++ was invented.
+  }
+}
+
+static inline void FromHexString(const char* hex, unsigned char* output, size_t sz) {
+  size_t c = 0;
+  
+  for(size_t i = 0;i<sz;i+=2) {
+    unsigned char word = 0;
+    char mander = hex[i];
+    if(mander>='A') {
+      word = ((mander-'A')+0xA) << 4;
+    }else {
+      word = (mander-'0') << 4;
+    }
+    mander = hex[i+1];
+    if(mander>='A') {
+      word |= ((mander-'A')+0xA);
+    }else {
+      word |= (mander-'0');
+    }
+    output[c] = word;
+    c++; //This is how C++ was invented
+  }
+}
 
 static inline void RSA_thumbprint(void* key, char* output) {
   unsigned char* tmpbuf;
   size_t len;
-  RSA_Export(key,false,&tmpbuf,&len);
+  void* buffer = RSA_Export(key,false);
+  GlobalGrid::Buffer_Get(buffer,(void**)&tmpbuf,&len);
   hash_generate(tmpbuf,len,output);
-  RSA_Free_Buffer(tmpbuf);
+  GlobalGrid::GGObject_Free(buffer);
 }
 
 
 static inline void RSA_thumbprint(void* key, unsigned char* output) {
   unsigned char* tmpbuf;
   size_t len;
-  RSA_Export(key,false,&tmpbuf,&len);
+  void* buffer = RSA_Export(key,false);
+  GlobalGrid::Buffer_Get(buffer,(void**)&tmpbuf,&len);
   hash_generate(tmpbuf,len,output);
-  RSA_Free_Buffer(tmpbuf);
+  GlobalGrid::GGObject_Free(buffer);
+  
 }
 
 

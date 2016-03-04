@@ -3,7 +3,7 @@
 #include "database.h"
 #include "crypto.h"
 
-
+#include "ip.h"
 
 int main(int argc, char** argv) {
 printf("======================================\n");
@@ -34,16 +34,19 @@ if(privkey == 0) {
   RSA_thumbprint(privkey,thumbprint);
   unsigned char* cert;
   size_t certlen;
-  RSA_Export(privkey,true,&cert,&certlen);
+  void* buffy = RSA_Export(privkey,true);
+  GlobalGrid::Buffer_Get(buffy,(void**)&cert,&certlen);
   printf("Generated certificate taking %i bytes\n",(int)certlen);
   DB_Insert_Certificate(thumbprint,cert,certlen,true);
-  RSA_Free_Buffer(cert);
+  GlobalGrid::GGObject_Free(buffy);
 }
 
 char thumbprint[33];
 thumbprint[32] = 0;
 RSA_thumbprint(privkey,thumbprint);
 printf("Your private key thumbprint is %s\n",thumbprint);
+
+
 
 return 0;
 }
