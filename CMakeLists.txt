@@ -1,4 +1,4 @@
-add_executable(FreeSpeech cppext/cppext.cpp main.cpp database.cpp sqlite3.c crypto.cpp GlobalGrid.cpp)
+add_executable(FreeSpeech cppext/cppext.cpp main.cpp database.cpp sqlite3.c crypto.cpp GlobalGrid.cpp ip.cpp)
 set (EXTRA_LIBS ${EXTRA_LIBS})
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I. -std=c++11 -g")
 include_directories(${EXTRA_HEADERS} "${PROJECT_BINARY_DIR}" ".")

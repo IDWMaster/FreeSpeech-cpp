@@ -4,7 +4,7 @@
 namespace IPProto {
 
 
-std::shared_ptr<GlobalGrid::ProtocolDriver> CreateDriver(); 
+std::shared_ptr<GlobalGrid::ProtocolDriver> CreateDriver(void* connmgr); 
 
 }
 
