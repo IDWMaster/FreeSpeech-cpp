@@ -44,6 +44,17 @@ public:
       return 0;
     }
   }
+  void* SerializeLocalSocket() {
+    void* buffy = GlobalGrid::Buffer_Create(16+2);
+    unsigned char* mander;
+    size_t outsz;
+    GlobalGrid::Buffer_Get(buffy,(void**)&mander,&outsz);
+    System::Net::IPEndpoint ep;
+    sock->GetLocalEndpoint(ep);
+    memcpy(mander,ep.ip.raw,16);
+    memcpy(mander+16,&ep.port,2);
+    return buffy;
+  }
 };
 
 

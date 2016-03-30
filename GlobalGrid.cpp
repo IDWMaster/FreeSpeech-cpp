@@ -151,6 +151,7 @@ public:
 	case 0:
 	  //Challenge request
 	{
+	  printf("Got challenge?\n");
 	  //Decrypt challenge
 	  void* challenge = RSA_Decrypt(privkey,packetData+1,packetLength-1);
 	  if(challenge == 0) {

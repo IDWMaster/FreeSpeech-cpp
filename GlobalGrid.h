@@ -37,6 +37,7 @@ public:
   //Protocol driver ID
   Guid id;
   virtual std::shared_ptr<VSocket> Deserialize(unsigned char* buffer, size_t bufflen) = 0;
+  virtual void* SerializeLocalSocket() = 0; //Serializes a socket containing localized connection information. Can be used for diagnostics purposes.
   virtual ~ProtocolDriver(){};
 };
 

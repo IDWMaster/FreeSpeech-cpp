@@ -7,7 +7,7 @@
 
 int main(int argc, char** argv) {
 printf("======================================\n");
-printf("Free Speech Project\n");
+printf("Free Speech Project -- System Demon\n");
 printf("======================================\n");
 
 
@@ -47,8 +47,14 @@ printf("Your private key thumbprint is %s\n",thumbprint);
 void* router = GlobalGrid::GlobalGrid_InitRouter(privkey);
 printf("Registering IP protocol driver with system....\n");
 std::shared_ptr<GlobalGrid::ProtocolDriver> deriver = IPProto::CreateDriver(router);
-printf("Protocol driver active and registered\n");
+void* locksock = deriver->SerializeLocalSocket();
 
+unsigned char* socket_data;
+size_t sock_len;
+GlobalGrid::Buffer_Get(locksock,&socket_data,&sock_len);
+uint16_t portno;
+memcpy(&portno,socket_data+16,2);
+printf("Protocol driver active and registered (port %i)\n",(int)portno);
 
 System::Enter();
 
