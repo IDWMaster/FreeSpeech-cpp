@@ -58,7 +58,18 @@ printf("Protocol driver active and registered (port %i)\n",(int)portno);
 
 //Connect to specified endpoint
 if(argc>1) {
-  
+  System::Net::IPEndpoint ep;
+  ep.ip = argv[1];
+  ep.port = atoi(argv[2]);
+  const char* thumbprint = argv[3];
+  //Connect to remote endpoint.
+  void* key = DB_FindAuthority(thumbprint);
+  if(key == 0) {
+    printf("ERR: Unable to find authority figure.\n");
+    abort();
+  }
+  GlobalGrid::GlobalGrid_InitiateHandshake(router,deriver->MakeSocket(ep),key);
+  RSA_Free(key);
 }
 
 System::Enter();

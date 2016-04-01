@@ -79,6 +79,7 @@ public:
     this->privkey = privkey;
   }
   void NtfyPacket(std::shared_ptr<GlobalGrid::VSocket> socket,unsigned char* packetData, size_t packetLength) {
+    printf("Got packet?\n");
     if(sessions.find(socket) == sessions.end()) {
       //We should have an AES key in our packet here encrypted with our public key.
       
@@ -89,6 +90,7 @@ public:
       }
       void* packet = RSA_Decrypt(privkey,packetData+16,packetLength-16);
       if(packet == 0) { //Decryption failure.
+	printf("Houston has another problem\n");
 	return;
       }
       unsigned char* buffer;
@@ -253,15 +255,23 @@ public:
   }
   void Handshake(const std::shared_ptr<GlobalGrid::VSocket>& socket, void* remoteKey) {
     //Remote thumbprint + AES session key
-    unsigned char packet[16+32];
-    Session session;
+    unsigned char thumbprint[16];
+    Session session(socket);
     secure_random_bytes(session.key,32);
-    RSA_thumbprint(remoteKey,packet);
+    RSA_thumbprint(remoteKey,thumbprint);
     //Encrypt second part of message containing AES session key
-    void* buffy = RSA_Encrypt(remoteKey,packet+16,32);
+    void* buffy = RSA_Encrypt(remoteKey,session.key,32);
     unsigned char* buffy_bytes;
     size_t buffy_size;
     GlobalGrid::Buffer_Get(buffy,&buffy_bytes,&buffy_size); //Be careful. Buffy bytes!
+    unsigned char* mander = new unsigned char[16+buffy_size];
+    memcpy(mander,thumbprint,16);
+    memcpy(mander+16,buffy_bytes,buffy_size);
+    socket->Send(mander,16+buffy_size); //Send Charmander into battle.
+    sessions.insert(session);
+    delete[] mander;
+    GlobalGrid::GGObject_Free(buffy);
+    
     
   }
 };

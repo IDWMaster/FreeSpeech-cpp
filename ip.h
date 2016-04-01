@@ -7,8 +7,7 @@ namespace IPProto {
 class IIPDriver:public GlobalGrid::ProtocolDriver {
 public:
   virtual ~IIPDriver(){};
-  //Associates an IP address with a given endpoint.
-  virtual void AddEndpoint(const System::Net::IPEndpoint& ep, void* key) = 0;
+  virtual std::shared_ptr<GlobalGrid::VSocket> MakeSocket(const System::Net::IPEndpoint& ep) = 0;
 };
 std::shared_ptr<IPProto::IIPDriver> CreateDriver(void* connmgr); 
 

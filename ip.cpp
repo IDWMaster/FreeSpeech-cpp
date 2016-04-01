@@ -44,8 +44,10 @@ public:
       return 0;
     }
   }
-void AddEndpoint(const System::Net::IPEndpoint& ep, void* key) {
-  
+std::shared_ptr< GlobalGrid::VSocket > MakeSocket(const System::Net::IPEndpoint& ep) {
+  std::shared_ptr<IPSocket> retval = std::make_shared<IPSocket>(sock);
+  retval->ep = ep;
+  return retval;
 }
   void* SerializeLocalSocket() {
     void* buffy = GlobalGrid::Buffer_Create(16+2);
@@ -58,6 +60,7 @@ void AddEndpoint(const System::Net::IPEndpoint& ep, void* key) {
     memcpy(mander+16,&ep.port,2);
     return buffy;
   }
+ 
 };
 
 
@@ -66,7 +69,9 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
 { std::shared_ptr<IPDriver> retval = std::make_shared<IPDriver>();
   unsigned char buffy[1024*4];
   retval->sock->Receive(buffy,1024*4,System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){
+    printf("Got IP?\n");
     std::shared_ptr<IPSocket> s = retval->socketMappings[results.receivedFrom].lock();
+    
     if(!s) {
       s = std::make_shared<IPSocket>(retval->sock);
       s->ep = results.receivedFrom;

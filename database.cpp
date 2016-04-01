@@ -97,7 +97,8 @@ void DB_FindAuthority(const char* auth,void* thisptr, void(*callback)(void*,unsi
   int val;
   while((val = sqlite3_step(db.findauth)) != SQLITE_DONE) {
     if(val == SQLITE_ROW) {
-      callback(thisptr,(unsigned char*)sqlite3_column_blob(db.findauth,0),sqlite3_column_bytes(db.findauth,0));
+      
+      callback(thisptr,(unsigned char*)sqlite3_column_blob(db.findauth,1),sqlite3_column_bytes(db.findauth,1));
       break;
     }
   }
