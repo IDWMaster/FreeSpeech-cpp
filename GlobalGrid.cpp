@@ -251,8 +251,24 @@ public:
       }
     }
   }
-  
+  void Handshake(const std::shared_ptr<GlobalGrid::VSocket>& socket, void* remoteKey) {
+    //Remote thumbprint + AES session key
+    unsigned char packet[16+32];
+    Session session;
+    secure_random_bytes(session.key,32);
+    RSA_thumbprint(remoteKey,packet);
+    //Encrypt second part of message containing AES session key
+    void* buffy = RSA_Encrypt(remoteKey,packet+16,32);
+    unsigned char* buffy_bytes;
+    size_t buffy_size;
+    GlobalGrid::Buffer_Get(buffy,&buffy_bytes,&buffy_size); //Be careful. Buffy bytes!
+    
+  }
 };
+void GlobalGrid::GlobalGrid_InitiateHandshake(void* connectionManager, std::shared_ptr< GlobalGrid::VSocket > socket, void* remoteKey)
+{
+((GGRouter*)connectionManager)->Handshake(socket,remoteKey);
+}
 
 void GlobalGrid::GlobalGrid_NtfyPacket(void* connectionManager, std::shared_ptr< GlobalGrid::VSocket > socket, unsigned char* packet, size_t packetlength)
 {

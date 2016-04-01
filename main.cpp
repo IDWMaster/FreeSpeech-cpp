@@ -46,7 +46,7 @@ RSA_thumbprint(privkey,thumbprint);
 printf("Your private key thumbprint is %s\n",thumbprint);
 void* router = GlobalGrid::GlobalGrid_InitRouter(privkey);
 printf("Registering IP protocol driver with system....\n");
-std::shared_ptr<GlobalGrid::ProtocolDriver> deriver = IPProto::CreateDriver(router);
+std::shared_ptr<IPProto::IIPDriver> deriver = IPProto::CreateDriver(router);
 void* locksock = deriver->SerializeLocalSocket();
 
 unsigned char* socket_data;
@@ -55,6 +55,11 @@ GlobalGrid::Buffer_Get(locksock,&socket_data,&sock_len);
 uint16_t portno;
 memcpy(&portno,socket_data+16,2);
 printf("Protocol driver active and registered (port %i)\n",(int)portno);
+
+//Connect to specified endpoint
+if(argc>1) {
+  
+}
 
 System::Enter();
 

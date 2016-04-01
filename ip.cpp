@@ -25,7 +25,7 @@ public:
   }
 };
 
-class IPDriver:public GlobalGrid::ProtocolDriver {
+class IPDriver:public IPProto::IIPDriver {
 public:
   std::shared_ptr<System::Net::UDPSocket> sock;
   std::map<System::Net::IPEndpoint,std::weak_ptr<IPSocket>> socketMappings;
@@ -44,6 +44,9 @@ public:
       return 0;
     }
   }
+void AddEndpoint(const System::Net::IPEndpoint& ep, void* key) {
+  
+}
   void* SerializeLocalSocket() {
     void* buffy = GlobalGrid::Buffer_Create(16+2);
     unsigned char* mander;
@@ -59,7 +62,7 @@ public:
 
 
 
-std::shared_ptr< GlobalGrid::ProtocolDriver > IPProto::CreateDriver(void* connectionManager)
+std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionManager)
 { std::shared_ptr<IPDriver> retval = std::make_shared<IPDriver>();
   unsigned char buffy[1024*4];
   retval->sock->Receive(buffy,1024*4,System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){

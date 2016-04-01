@@ -55,7 +55,7 @@ void GGObject_Free(void* obj);
 void GlobalGrid_NtfyPacket(void* connectionManager, std::shared_ptr<VSocket>, unsigned char* packet, size_t packetlength);
 void* GlobalGrid_InitRouter(void* encryptionKey);
 void GlobalGrid_RegisterProtocolDriver(void* connectionManager,std::shared_ptr<ProtocolDriver> driver);
-
+void GlobalGrid_InitiateHandshake(void* connectionManager, std::shared_ptr<VSocket> socket, void* remoteKey);
 
 }
 #endif
