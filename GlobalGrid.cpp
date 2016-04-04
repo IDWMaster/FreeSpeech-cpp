@@ -114,11 +114,13 @@ public:
 	  unsigned char* challenge_bytes;
 	  size_t challenge_size;
 	  GlobalGrid::Buffer_Get(challenge,&challenge_bytes,&challenge_size);
-	  size_t aligned_challenge = 1+challenge_size;
+	  size_t aligned_challenge = 1+2+challenge_size;
 	  aligned_challenge+=16-(aligned_challenge % 16);
 	  unsigned char* xmitPacket = new unsigned char[aligned_challenge];
 	  memset(xmitPacket,0,aligned_challenge);
-	  memcpy(xmitPacket+1,challenge_bytes,challenge_size);
+	  uint16_t pc_sz = (uint16_t)challenge_size; //TODO: Transmit size of RSA encrypted blob along with actual blob
+	  memcpy(xmitPacket+1,&pc_sz,2);
+	  memcpy(xmitPacket+1+2,challenge_bytes,challenge_size);
 	  for(size_t i = 0;i<aligned_challenge;i+=16) {
 	    aes_encrypt(route.key,xmitPacket+i);
 	  }
@@ -153,20 +155,22 @@ public:
 	case 0:
 	  //Challenge request
 	{
-	  printf("Got challenge?\n");
 	  //Decrypt challenge
-	  void* challenge = RSA_Decrypt(privkey,packetData+1,packetLength-1);
+	  uint16_t len;
+	  memcpy(&len,packetData+1,2);
+	  void* challenge = RSA_Decrypt(privkey,packetData+1+2,len);
 	  if(challenge == 0) {
 	    return;
 	  }
 	  unsigned char* challenge_bytes;
 	  size_t challenge_sz;
+	  
+	  GlobalGrid::Buffer_Get(challenge,&challenge_bytes,&challenge_sz);
 	  if(challenge_sz != 16) {
 	    GlobalGrid::GGObject_Free(challenge);
 	    return;
 	  }
 	  
-	  GlobalGrid::Buffer_Get(challenge,&challenge_bytes,&challenge_sz);
 	  unsigned char response[32];
 	  memset(response,0,32);
 	  response[0] = 1;
@@ -182,6 +186,7 @@ public:
 	case 1:
 	{
 	  //Response to challenge (identity verification)
+	  printf("Received response to challenge\n");
 	  if(memcmp(session.challenge,packetData+1,16) == 0) {
 	    printf("Identity verified.\n");
 	  }

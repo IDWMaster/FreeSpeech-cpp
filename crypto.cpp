@@ -16,6 +16,7 @@ void secure_random_bytes(void* output, size_t outlen)
 void aes_encrypt(const void* key, void* data)
 {
   AES_KEY mkey;
+  
   AES_set_encrypt_key((unsigned char*)key,256,&mkey);
   AES_encrypt((unsigned char*)data,(unsigned char*)data,&mkey);
   

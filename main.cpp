@@ -11,6 +11,9 @@ printf("Free Speech Project -- System Demon\n");
 printf("======================================\n");
 
 
+
+
+
 void* privkey = 0;
 
 bool(*fptr)(void*,unsigned char*,size_t);
@@ -56,6 +59,9 @@ uint16_t portno;
 memcpy(&portno,socket_data+16,2);
 printf("Protocol driver active and registered (port %i)\n",(int)portno);
 
+
+//TODO: Server is listening on appropriate port, as verified by netstat -l.
+//Client must not be sending handshake appopriately (or server receive loop isn't working).
 //Connect to specified endpoint
 if(argc>1) {
   System::Net::IPEndpoint ep;

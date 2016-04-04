@@ -23,6 +23,9 @@ public:
   void Send(const void* data, size_t sz) {
     sock->Send(data,sz,ep);
   }
+  ~IPSocket() {
+    printf("Socket destroyed\n");
+  }
 };
 
 class IPDriver:public IPProto::IIPDriver {
@@ -47,6 +50,13 @@ public:
 std::shared_ptr< GlobalGrid::VSocket > MakeSocket(const System::Net::IPEndpoint& ep) {
   std::shared_ptr<IPSocket> retval = std::make_shared<IPSocket>(sock);
   retval->ep = ep;
+  socketMappings[ep] = retval;
+  System::Net::IPEndpoint mp;
+  mp.ip = ep.ip;
+  mp.port = ep.port;
+  /*if(socketMappings.find(mp) == socketMappings.end()) {
+    abort();
+  }*/
   return retval;
 }
   void* SerializeLocalSocket() {
@@ -67,18 +77,23 @@ std::shared_ptr< GlobalGrid::VSocket > MakeSocket(const System::Net::IPEndpoint&
 
 std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionManager)
 { std::shared_ptr<IPDriver> retval = std::make_shared<IPDriver>();
-  unsigned char buffy[1024*4];
-  retval->sock->Receive(buffy,1024*4,System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){
-    printf("Got IP?\n");
+  unsigned char* buffy = new unsigned char[1024*4];
+  std::shared_ptr<System::Net::UDPCallback>* cb = new std::shared_ptr<System::Net::UDPCallback>();
+  *cb = System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){
+    
     std::shared_ptr<IPSocket> s = retval->socketMappings[results.receivedFrom].lock();
     
     if(!s) {
+      printf("New socket\n");
       s = std::make_shared<IPSocket>(retval->sock);
       s->ep = results.receivedFrom;
       retval->socketMappings[results.receivedFrom] = s;
     }
     GlobalGrid::GlobalGrid_NtfyPacket(connectionManager,s,(unsigned char*)buffy,results.outlen);
-  }));
+    retval->sock->Receive(buffy,1024*4,*cb);
+    //TODO: Delete cb AND buffy on destruction of protocol driver.
+  });
+  retval->sock->Receive(buffy,1024*4,*cb);
   return retval;
 }
 
