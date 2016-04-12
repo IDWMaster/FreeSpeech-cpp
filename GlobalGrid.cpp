@@ -1,3 +1,21 @@
+/*
+
+ This file is part of the GlobalGrid Protocol Suite.
+
+    GlobalGrid is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    GlobalGrid is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with GlobalGrid.  If not, see <http://www.gnu.org/licenses/>.
+ * */
+
 #include "GlobalGrid.h"
 #include <stdlib.h>
 #include <set>
@@ -73,13 +91,34 @@ class GGRouter:public IDisposable {
 public:
   void* privkey;
   std::map<GlobalGrid::Guid,std::shared_ptr<GlobalGrid::ProtocolDriver>> drivers;
-  std::set<Session> sessions;
-  std::map<GlobalGrid::Guid,std::weak_ptr<GlobalGrid::VSocket>> routes;
+  std::set<Session> sessions; //Active list of sessions (TODO these have to be garbage-collected somehow).
+  std::map<GlobalGrid::Guid,std::weak_ptr<GlobalGrid::VSocket>> routes; //Known routes
   GGRouter(void* privkey) {
     this->privkey = privkey;
   }
+  
+  
+  void SendChallenge(void* remoteKey, Session& route, const std::shared_ptr<GlobalGrid::VSocket>& socket) {
+    void* challenge = RSA_Encrypt(remoteKey,(unsigned char*)route.challenge,16);
+	  unsigned char* challenge_bytes;
+	  size_t challenge_size;
+	  GlobalGrid::Buffer_Get(challenge,&challenge_bytes,&challenge_size);
+	  size_t aligned_challenge = 1+2+challenge_size;
+	  aligned_challenge+=16-(aligned_challenge % 16);
+	  unsigned char* xmitPacket = new unsigned char[aligned_challenge];
+	  memset(xmitPacket,0,aligned_challenge);
+	  uint16_t pc_sz = (uint16_t)challenge_size; //TODO: Transmit size of RSA encrypted blob along with actual blob
+	  memcpy(xmitPacket+1,&pc_sz,2);
+	  memcpy(xmitPacket+1+2,challenge_bytes,challenge_size);
+	  for(size_t i = 0;i<aligned_challenge;i+=16) {
+	    aes_encrypt(route.key,xmitPacket+i);
+	  }
+	  socket->Send(xmitPacket,aligned_challenge);
+	  delete[] xmitPacket;
+	  GlobalGrid::GGObject_Free(challenge);
+  }
   void NtfyPacket(std::shared_ptr<GlobalGrid::VSocket> socket,unsigned char* packetData, size_t packetLength) {
-    printf("Got packet?\n");
+    
     if(sessions.find(socket) == sessions.end()) {
       //We should have an AES key in our packet here encrypted with our public key.
       
@@ -90,7 +129,6 @@ public:
       }
       void* packet = RSA_Decrypt(privkey,packetData+16,packetLength-16);
       if(packet == 0) { //Decryption failure.
-	printf("Houston has another problem\n");
 	return;
       }
       unsigned char* buffer;
@@ -110,23 +148,7 @@ public:
 	void* remoteKey = DB_FindAuthority(hexprint);
 	
 	if(remoteKey) {
-	  void* challenge = RSA_Encrypt(remoteKey,(unsigned char*)route.challenge,16);
-	  unsigned char* challenge_bytes;
-	  size_t challenge_size;
-	  GlobalGrid::Buffer_Get(challenge,&challenge_bytes,&challenge_size);
-	  size_t aligned_challenge = 1+2+challenge_size;
-	  aligned_challenge+=16-(aligned_challenge % 16);
-	  unsigned char* xmitPacket = new unsigned char[aligned_challenge];
-	  memset(xmitPacket,0,aligned_challenge);
-	  uint16_t pc_sz = (uint16_t)challenge_size; //TODO: Transmit size of RSA encrypted blob along with actual blob
-	  memcpy(xmitPacket+1,&pc_sz,2);
-	  memcpy(xmitPacket+1+2,challenge_bytes,challenge_size);
-	  for(size_t i = 0;i<aligned_challenge;i+=16) {
-	    aes_encrypt(route.key,xmitPacket+i);
-	  }
-	  socket->Send(xmitPacket,aligned_challenge);
-	  delete[] xmitPacket;
-	  GlobalGrid::GGObject_Free(challenge);
+	  SendChallenge(remoteKey,route,socket);
 	}else {
 	  //We don't have a remote key. Request it.
 	  unsigned char izard[16];
@@ -186,8 +208,8 @@ public:
 	case 1:
 	{
 	  //Response to challenge (identity verification)
-	  printf("Received response to challenge\n");
 	  if(memcmp(session.challenge,packetData+1,16) == 0) {
+	    session.verified = true;
 	    printf("Identity verified.\n");
 	  }
 	}
@@ -233,22 +255,7 @@ public:
 	    GlobalGrid::GGObject_Free(keybin);
 	    if(session.verified == false) {
 	      //TODO: Send verification request
-	      
-	      void* challenge = RSA_Encrypt(key,(unsigned char*)session.challenge,16);
-	  unsigned char* challenge_bytes;
-	  size_t challenge_size;
-	  GlobalGrid::Buffer_Get(challenge,&challenge_bytes,&challenge_size);
-	  size_t aligned_challenge = 1+challenge_size;
-	  aligned_challenge+=16-(aligned_challenge % 16);
-	  unsigned char* xmitPacket = new unsigned char[aligned_challenge];
-	  memset(xmitPacket,0,aligned_challenge);
-	  memcpy(xmitPacket+1,challenge_bytes,challenge_size);
-	  for(size_t i = 0;i<aligned_challenge;i+=16) {
-	    aes_encrypt(session.key,xmitPacket+i);
-	  }
-	  socket->Send(xmitPacket,aligned_challenge);
-	  delete[] xmitPacket;
-	  GlobalGrid::GGObject_Free(challenge);
+	      SendChallenge(key,session,socket);
 	    }
 	  }else {
 	    RSA_Free(obj);

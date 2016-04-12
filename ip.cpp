@@ -1,3 +1,22 @@
+/*
+
+ This file is part of the GlobalGrid Protocol Suite.
+
+    GlobalGrid is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    GlobalGrid is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with GlobalGrid.  If not, see <http://www.gnu.org/licenses/>.
+ * */
+
+
 #include "ip.h"
 #include "crypto.h"
 #include "cppext/cppext.h"
@@ -24,7 +43,6 @@ public:
     sock->Send(data,sz,ep);
   }
   ~IPSocket() {
-    printf("Socket destroyed\n");
   }
 };
 
@@ -75,6 +93,13 @@ std::shared_ptr< GlobalGrid::VSocket > MakeSocket(const System::Net::IPEndpoint&
 
 
 
+/**
+ * Six degrees of separation app
+ * Have a list of people near by, find out how many degrees of separation they are from each other
+ * (network of people; you know Michael, who knows Jimmy, who knows Him)
+ * */
+
+
 std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionManager)
 { std::shared_ptr<IPDriver> retval = std::make_shared<IPDriver>();
   unsigned char* buffy = new unsigned char[1024*4];
@@ -84,7 +109,6 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
     std::shared_ptr<IPSocket> s = retval->socketMappings[results.receivedFrom].lock();
     
     if(!s) {
-      printf("New socket\n");
       s = std::make_shared<IPSocket>(retval->sock);
       s->ep = results.receivedFrom;
       retval->socketMappings[results.receivedFrom] = s;
