@@ -97,6 +97,44 @@ public:
     this->privkey = privkey;
   }
   
+  //Use the DHT Kademlia algorithm to find the best node that we're aware of.
+  //This works using the following method:
+  //Find the peer with the lowest distance between the key, and the peer ID (distance is the result of (key ^ peer GUID))
+  //Return the peer which was found.
+  //In our case; we modify our method such that it can return multiple peers, 
+  size_t FindBestPeersForHash(const GlobalGrid::Guid& lukeup, GlobalGrid::Guid* peerlist, size_t numPeers) {
+    size_t numLeft = sessions.size();
+    uint64_t distance[2]; //Current distance
+    distance[0] = -1;
+    distance[1] = -1;
+    size_t currentPeer = 0;
+    size_t found = 0;
+    size_t foundPeers = 0;
+    for(auto bot = sessions.begin();bot != sessions.end();bot++) {
+      //Compute distance
+      uint64_t cdist[2];
+      cdist[0] = distance[0] ^ lukeup.value[0];
+      cdist[1] = distance[1] ^ lukeup.value[1];
+      
+      //NOTE: We really only need to compare the first 64-bits
+      //The chances of any two being the same are astronomically low.
+      if(cdist[0]<distance[0]) {
+      
+      
+	if((*bot).verified) {
+	  distance[0] = cdist[0];
+	  distance[1] = cdist[1];
+	  peerlist[currentPeer] = GlobalGrid::Guid((*bot).claimedThumbprint);
+	  currentPeer = (currentPeer + 1) % numPeers;
+	  if(foundPeers<numPeers) {
+	    foundPeers++;
+	  }
+	}
+      
+      }
+    }
+    return foundPeers;
+  }
   
   void SendChallenge(void* remoteKey, Session& route, const std::shared_ptr<GlobalGrid::VSocket>& socket) {
     void* challenge = RSA_Encrypt(remoteKey,(unsigned char*)route.challenge,16);
@@ -269,6 +307,7 @@ public:
     //Remote thumbprint + AES session key
     unsigned char thumbprint[16];
     Session session(socket);
+    session.verified = true; //If they can send back a response (properly encoded; that is); we know that we're verified.
     secure_random_bytes(session.key,32);
     RSA_thumbprint(remoteKey,thumbprint);
     //Encrypt second part of message containing AES session key

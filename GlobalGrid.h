@@ -41,7 +41,7 @@ public:
   Guid() {
     
   }
-  Guid(uint64_t* val) {
+  Guid(const uint64_t* val) {
     value[0] = val[0];
     value[1] = val[1];
   }
