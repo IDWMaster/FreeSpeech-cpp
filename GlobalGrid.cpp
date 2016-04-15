@@ -300,8 +300,69 @@ public:
 	  }
 	}
 	  break;
+	case 4:
+	{
+	  //Route packet
+	  packetData++;
+	  unsigned char ttl = *packetData;
+	  packetData++;
+	  
+	  //Intended destination
+	  GlobalGrid::Guid dest(packetData);
+	  packetData+=16;
+	  GlobalGrid::Guid localThumbprint;
+	  RSA_thumbprint(privkey,(unsigned char*)localThumbprint.value);
+	  uint32_t packetSize;
+	  memcpy(&packetSize,packetData,4);
+	  packetData+=16;
+	  if(dest == localThumbprint) {
+	    printf("TODO: Received packet for ourselves\n");
+	    return;
+	  }else {
+	    //TODO: Find best route
+	    std::shared_ptr<GlobalGrid::VSocket> sock = routes[dest].lock();
+	    if(sock && (sessions.find(sock) != sessions.end())) {
+	      Session s = sessions[sock];
+	      if(s.verified) {
+		ttl--;
+		SendPacketRouted(s,packetData,packetSize,ttl,dest);
+		return;
+	      }
+	    }
+	  }
+	  
+	  //Find best routes
+	  GlobalGrid::Guid candidateRoute;
+	  size_t numRoutes = FindBestPeersForHash(dest,&candidateRoute,1); //NOTE: If we're the one sending the packet, we may want to route along more than one path. If we're relaying a packet, we should only care about the next hop in the chain.
+	  
+	  if(numRoutes && (memcmp(candidateRoute.value,session.claimedThumbprint,16) != 0)) {
+	    ttl--;
+	    SendPacketRouted(candidateRoute,packetData,packetSize,ttl,dest);
+	  }
+	  
+	}
+	  break;
       }
     }
+  }
+  void SendPacketRouted(const Session& route, unsigned char* packet, size_t sz, unsigned char ttl, const GlobalGrid::Guid& dest) {
+   size_t pSize = 1+16+4+sz;
+   pSize+=(16-(pSize % 16));
+   unsigned char* mander = (unsigned char*)new uint64_t[pSize/8];
+   *mander = ttl;
+   memcpy(mander+1,dest.value,16);
+   uint32_t ss = sz;
+   memcpy(mander+1+16,&ss,4);
+   memcpy(mander+1+16+4,packet,sz);
+   aes_encrypt(route.key,mander);
+   for(size_t i = 16;i<pSize;i+=16) {
+     //XOR with previous ciphertext
+     ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
+     ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
+     aes_encrypt(route.key, packet+i);
+   }
+   route.socket->Send(mander,pSize);
+   delete[] mander;
   }
   void Handshake(const std::shared_ptr<GlobalGrid::VSocket>& socket, void* remoteKey) {
     //Remote thumbprint + AES session key
