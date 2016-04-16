@@ -45,6 +45,12 @@ public:
     value[0] = val[0];
     value[1] = val[1];
   }
+  bool operator==(const Guid& other) const {
+    return (value[0] == other.value[0]) && (value[1] == other.value[1]);
+  }
+  bool operator!=(const Guid& other) const {
+    return !((value[0] == other.value[0]) && (value[1] == other.value[1]));
+  }
   bool operator<(const Guid& other) const {
     return memcmp(value,other.value,16) < 0;
   }
@@ -74,6 +80,9 @@ void GlobalGrid_NtfyPacket(void* connectionManager, std::shared_ptr<VSocket>, un
 void* GlobalGrid_InitRouter(void* encryptionKey);
 void GlobalGrid_RegisterProtocolDriver(void* connectionManager,std::shared_ptr<ProtocolDriver> driver);
 void GlobalGrid_InitiateHandshake(void* connectionManager, std::shared_ptr<VSocket> socket, void* remoteKey);
+void GlobalGrid_SendPacket(void* connectionManager, const Guid& dest, unsigned char* data, size_t sz);
+
+
 
 }
 #endif

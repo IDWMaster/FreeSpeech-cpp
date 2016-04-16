@@ -93,8 +93,10 @@ public:
   std::map<GlobalGrid::Guid,std::shared_ptr<GlobalGrid::ProtocolDriver>> drivers;
   std::set<Session> sessions; //Active list of sessions (TODO these have to be garbage-collected somehow).
   std::map<GlobalGrid::Guid,std::weak_ptr<GlobalGrid::VSocket>> routes; //Known routes
+  GlobalGrid::Guid localGuid;
   GGRouter(void* privkey) {
     this->privkey = privkey;
+    RSA_thumbprint(privkey,(unsigned char*)localGuid.value);
   }
   
   //Use the DHT Kademlia algorithm to find the best node that we're aware of.
@@ -308,42 +310,48 @@ public:
 	  packetData++;
 	  
 	  //Intended destination
-	  GlobalGrid::Guid dest(packetData);
+	  GlobalGrid::Guid dest;
+	  memcpy(dest.value,packetData,16);
 	  packetData+=16;
 	  GlobalGrid::Guid localThumbprint;
 	  RSA_thumbprint(privkey,(unsigned char*)localThumbprint.value);
 	  uint32_t packetSize;
 	  memcpy(&packetSize,packetData,4);
 	  packetData+=16;
-	  if(dest == localThumbprint) {
-	    printf("TODO: Received packet for ourselves\n");
+	  if(dest == localGuid) {
+	    printf("TODO: Packet destined for ourselves\n");
 	    return;
-	  }else {
-	    //TODO: Find best route
-	    std::shared_ptr<GlobalGrid::VSocket> sock = routes[dest].lock();
-	    if(sock && (sessions.find(sock) != sessions.end())) {
-	      Session s = sessions[sock];
-	      if(s.verified) {
-		ttl--;
-		SendPacketRouted(s,packetData,packetSize,ttl,dest);
-		return;
-	      }
-	    }
 	  }
-	  
-	  //Find best routes
-	  GlobalGrid::Guid candidateRoute;
-	  size_t numRoutes = FindBestPeersForHash(dest,&candidateRoute,1); //NOTE: If we're the one sending the packet, we may want to route along more than one path. If we're relaying a packet, we should only care about the next hop in the chain.
-	  
-	  if(numRoutes && (memcmp(candidateRoute.value,session.claimedThumbprint,16) != 0)) {
-	    ttl--;
-	    SendPacketRouted(candidateRoute,packetData,packetSize,ttl,dest);
-	  }
+	  SendPacket(packetData,packetSize,ttl,dest,session.claimedThumbprint);
 	  
 	}
 	  break;
       }
     }
+  }
+  void SendPacket(unsigned char* packet, size_t sz, unsigned char ttl, const GlobalGrid::Guid& dest, const GlobalGrid::Guid& origin) {
+        //TODO: Find best route
+	    std::shared_ptr<GlobalGrid::VSocket> sock = routes[dest].lock();
+	    if(sock && (sessions.find(sock) != sessions.end())) {
+	      auto s = sessions.find(sock);
+	      if(s->verified) {
+		SendPacketRouted(*s,packet,sz,ttl-1,dest);
+		return;
+	      }
+	    }
+	  
+	  
+	  //Find best routes
+	  GlobalGrid::Guid candidateRoute;
+	  size_t numRoutes = FindBestPeersForHash(dest,&candidateRoute,1); //NOTE: If we're the one sending the packet, we may want to route along more than one path. If we're relaying a packet, we should only care about the next hop in the chain.
+	  
+	  if(numRoutes && (origin != candidateRoute)) {
+	    
+	    std::shared_ptr<GlobalGrid::VSocket> sock = routes[candidateRoute].lock();
+	    if(sock && (sessions.find(sock) != sessions.end())) {
+	      SendPacketRouted(*sessions.find(sock),packet,sz,ttl-1,dest);
+	    }
+	  }
   }
   void SendPacketRouted(const Session& route, unsigned char* packet, size_t sz, unsigned char ttl, const GlobalGrid::Guid& dest) {
    size_t pSize = 1+16+4+sz;
@@ -387,6 +395,12 @@ public:
     
   }
 };
+void GlobalGrid::GlobalGrid_SendPacket(void* connectionManager, const GlobalGrid::Guid& dest, unsigned char* data, size_t sz)
+{
+  GGRouter* conman = (GGRouter*)connectionManager;
+  conman->SendPacket(data,sz,30,dest,conman->localGuid);
+}
+
 void GlobalGrid::GlobalGrid_InitiateHandshake(void* connectionManager, std::shared_ptr< GlobalGrid::VSocket > socket, void* remoteKey)
 {
 ((GGRouter*)connectionManager)->Handshake(socket,remoteKey);
