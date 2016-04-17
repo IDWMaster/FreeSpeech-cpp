@@ -23,8 +23,21 @@
 #include <thread>
 #include "ip.h"
 #include <unistd.h>
+
+
+
+
+
+
+
 int main(int argc, char** argv) {
-printf("======================================\n");
+
+  
+  
+  
+  
+  
+  printf("======================================\n");
 printf("Free Speech Project -- System Demon\n");
 printf("======================================\n");
 
@@ -102,18 +115,19 @@ if(argc>1) {
   GlobalGrid::GlobalGrid_InitiateHandshake(router,deriver->MakeSocket(ep),key);
   RSA_Free(key);
 }
-auto messenger = System::MakeQueue([&](const System::Message& msg){
+
+
+    char mander[256];
+auto messenger = System::MakeQueue([&](std::shared_ptr<System::Message> msg){
   
+    printf("PING %s\n",mander);
 });
 
 std::thread m([&](){
   
-    char mander[256];
   while(true) {
-    memset(mander,0,256);
-    read(0,mander,256);
-    printf("PING %s\n",mander);
-    
+    mander[read(0,mander,256)] = 0;
+    messenger->Post(0);
   }
 });
 m.detach();
