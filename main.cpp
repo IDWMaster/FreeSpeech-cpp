@@ -20,9 +20,9 @@
 #include <fcntl.h>
 #include "database.h"
 #include "crypto.h"
-
+#include <thread>
 #include "ip.h"
-
+#include <unistd.h>
 int main(int argc, char** argv) {
 printf("======================================\n");
 printf("Free Speech Project -- System Demon\n");
@@ -67,7 +67,14 @@ RSA_thumbprint(privkey,thumbprint);
 printf("Your private key thumbprint is %s\n",thumbprint);
 void* router = GlobalGrid::GlobalGrid_InitRouter(privkey);
 printf("Registering IP protocol driver with system....\n");
-std::shared_ptr<IPProto::IIPDriver> deriver = IPProto::CreateDriver(router);
+System::Net::IPEndpoint routerBinding;
+routerBinding.ip = "::";
+routerBinding.port = 0;
+if(argc>1) {
+  routerBinding.ip = argv[4];
+  routerBinding.port = atoi(argv[5]);
+}
+std::shared_ptr<IPProto::IIPDriver> deriver = IPProto::CreateDriver(router,routerBinding);
 void* locksock = deriver->SerializeLocalSocket();
 
 unsigned char* socket_data;
@@ -95,7 +102,21 @@ if(argc>1) {
   GlobalGrid::GlobalGrid_InitiateHandshake(router,deriver->MakeSocket(ep),key);
   RSA_Free(key);
 }
+auto messenger = System::MakeQueue([&](const System::Message& msg){
+  
+});
 
+std::thread m([&](){
+  
+    char mander[256];
+  while(true) {
+    memset(mander,0,256);
+    read(0,mander,256);
+    printf("PING %s\n",mander);
+    
+  }
+});
+m.detach();
 System::Enter();
 
 return 0;

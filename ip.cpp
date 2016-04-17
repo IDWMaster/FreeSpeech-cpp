@@ -50,9 +50,10 @@ class IPDriver:public IPProto::IIPDriver {
 public:
   std::shared_ptr<System::Net::UDPSocket> sock;
   std::map<System::Net::IPEndpoint,std::weak_ptr<IPSocket>> socketMappings;
-  IPDriver() {
+  IPDriver(const System::Net::IPEndpoint& ep) {
     FromHexString("452566E212031284966AB354F7F6CA04",(unsigned char*)id.value,2*16);
-    sock = System::Net::CreateUDPSocket(); //Put a sock in itself.
+    sock = System::Net::CreateUDPSocket(ep); //Put a sock in itself.
+    
   }
   
   std::shared_ptr< GlobalGrid::VSocket > Deserialize(unsigned char* buffer, size_t bufflen) {
@@ -100,8 +101,8 @@ std::shared_ptr< GlobalGrid::VSocket > MakeSocket(const System::Net::IPEndpoint&
  * */
 
 
-std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionManager)
-{ std::shared_ptr<IPDriver> retval = std::make_shared<IPDriver>();
+std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionManager, const System::Net::IPEndpoint& ep)
+{ std::shared_ptr<IPDriver> retval = std::make_shared<IPDriver>(ep);
   unsigned char* buffy = new unsigned char[1024*4];
   std::shared_ptr<System::Net::UDPCallback>* cb = new std::shared_ptr<System::Net::UDPCallback>();
   *cb = System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){

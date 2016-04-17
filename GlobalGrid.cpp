@@ -395,6 +395,7 @@ public:
     
   }
 };
+
 void GlobalGrid::GlobalGrid_SendPacket(void* connectionManager, const GlobalGrid::Guid& dest, unsigned char* data, size_t sz)
 {
   GGRouter* conman = (GGRouter*)connectionManager;
