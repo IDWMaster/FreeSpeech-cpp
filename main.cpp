@@ -119,7 +119,10 @@ if(argc>1) {
 
     char mander[256];
 auto messenger = System::MakeQueue([&](std::shared_ptr<System::Message> msg){
-  
+  unsigned char pingmsg = 0;
+  GlobalGrid::Guid converted;
+  FromHexString(mander,(unsigned char*)converted.value,16*2);
+  GlobalGrid::GlobalGrid_SendPacket(router,converted,&pingmsg,1);
     printf("PING %s\n",mander);
 });
 
