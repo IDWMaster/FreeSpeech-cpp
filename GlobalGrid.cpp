@@ -402,15 +402,10 @@ public:
    uint32_t ss = sz;
    memcpy(mander+1+16,&ss,4);
    memcpy(mander+1+16+4,packet,sz);
-   aes_encrypt(route.key,mander);
-   for(size_t i = 16;i<pSize;i+=16) {
-     //XOR with previous ciphertext
-     ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
-     ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
-     aes_encrypt(route.key, packet+i);
-   }
+   aes_encrypt_packet((void*)route.key,(uint64_t*)mander,pSize);
+   
    route.socket->Send(mander,pSize);
-   delete[] mander;
+   delete[] (uint64_t*)mander;
   }
   void Handshake(const std::shared_ptr<GlobalGrid::VSocket>& socket, void* remoteKey) {
     
