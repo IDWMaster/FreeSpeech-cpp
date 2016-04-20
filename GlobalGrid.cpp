@@ -176,6 +176,7 @@ public:
       size_t sz;
       GlobalGrid::Buffer_Get(packet,&buffer,&sz);
       if(sz>=32) {
+	printf("Got new session\n");
 	//We have a new Session.
 	Session route(socket,buffer,packetData);
 	sessions.insert(route);
@@ -244,6 +245,7 @@ public:
 	  socket->Send(response,32);
 	  GlobalGrid::GGObject_Free(challenge);
 	  
+	  printf("Sent challenge response\n");
 	  
 	}
 	  break;
