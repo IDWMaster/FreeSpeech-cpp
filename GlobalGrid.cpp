@@ -160,6 +160,7 @@ public:
   void NtfyPacket(std::shared_ptr<GlobalGrid::VSocket> socket,unsigned char* packetData, size_t packetLength) {
     
     if(sessions.find(socket) == sessions.end()) {
+      printf("Got new session\n");
       //We should have an AES key in our packet here encrypted with our public key.
       
       
