@@ -59,7 +59,6 @@ void* RSA_Key(unsigned char* data, size_t len)
   msa->n = ReadBig(str); //Public modulus
   msa->e = ReadBig(str); //Public exponent
   if(str.length) {
-    printf("DEBUG CRYPTO.CPP: Private read %i left\n",(int)str.length);
     msa->d = ReadBig(str); //Private exponent
     msa->p = ReadBig(str); //Secret prime factor
     msa->q = ReadBig(str); //Secret prime factor
