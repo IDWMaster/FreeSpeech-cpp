@@ -74,11 +74,44 @@ if(privkey == 0) {
   GlobalGrid::GGObject_Free(buffy);
 }
 
+if(argc>1) {
+  if(strcmp(argv[1],"export") == 0) {
+    //Export public key
+    void* buffy = RSA_Export(privkey,false);
+    unsigned char* mander;
+    size_t sz;
+    GlobalGrid::Buffer_Get(buffy,&mander,&sz);
+    write(STDOUT_FILENO,mander,sz);
+    return 0;
+  }else {
+    if(strcmp(argv[1],"import") == 0) {
+      unsigned char mander[4096];
+      int len = read(STDIN_FILENO,mander,4096);
+      void* key = RSA_Key(mander,len);
+      if(key == 0) {
+	printf("Invalid key. Cannot import.\n");
+	return -1;
+      }
+       char thumbprint[33];
+  thumbprint[32] = 0;
+  RSA_thumbprint(key,thumbprint);
+  DB_Insert_Certificate(thumbprint,mander,len,false);
+  printf("Successfully imported key with thumbprint %s\n",thumbprint);
+  
+      return 0;
+    }
+  }
+}
+
+
 char thumbprint[33];
 thumbprint[32] = 0;
 RSA_thumbprint(privkey,thumbprint);
 printf("Your private key thumbprint is %s\n",thumbprint);
 void* router = GlobalGrid::GlobalGrid_InitRouter(privkey);
+
+
+
 printf("Registering IP protocol driver with system....\n");
 System::Net::IPEndpoint routerBinding;
 routerBinding.ip = "::";
@@ -133,7 +166,10 @@ std::thread m([&](){
     messenger->Post(0);
   }
 });
+
 m.detach();
+
+
 System::Enter();
 
 return 0;
