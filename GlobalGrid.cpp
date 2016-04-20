@@ -269,13 +269,14 @@ public:
 	  unsigned char* key_bytes;
 	  size_t key_size;
 	  GlobalGrid::Buffer_Get(key,&key_bytes,&key_size);
-	  size_t aligned = key_size+1;
+	  uint16_t keySize = (uint16_t)key_size;
+	  size_t aligned = 1+2+key_size;
 	  aligned+=16-(aligned % 16);
 	  
 	  unsigned char* packet = new unsigned char[aligned];
-	  memcpy(packet+1,key_bytes,key_size);
 	  packet[0] = 3;
-	  
+	  memcpy(packet+1,&keySize,2);
+	  memcpy(packet+1+2,key_bytes,key_size);
 	  for(size_t i = 0;i<aligned;i+=16) {
 	    aes_encrypt(session.key,packet+i);
 	  }
@@ -289,7 +290,13 @@ public:
 	case 3:
 	{
 	  //Received public encryption key
-	  void* key = RSA_Key(packetData+1,packetLength-1);
+	  uint16_t keyLen;
+	  memcpy(&keyLen,packetData+1,2);
+	  if(keyLen>packetLength-1-2) {
+	    printf("Illegal key length\n");
+	    return;
+	  }
+	  void* key = RSA_Key(packetData+1+2,keyLen);
 	  if(key == 0) {
 	    printf("ERROR: Invalid encryption key.\n");
 	    return;
