@@ -103,7 +103,7 @@ std::shared_ptr< GlobalGrid::VSocket > MakeSocket(const System::Net::IPEndpoint&
 
 std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionManager, const System::Net::IPEndpoint& ep)
 { std::shared_ptr<IPDriver> retval = std::make_shared<IPDriver>(ep);
-  unsigned char* buffy = new unsigned char[1024*4];
+  unsigned char* buffy = (unsigned char*)new uint64_t[512]; //4KB buffer aligned to 64-bits
   std::shared_ptr<System::Net::UDPCallback>* cb = new std::shared_ptr<System::Net::UDPCallback>();
   *cb = System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){
     

@@ -157,8 +157,33 @@ public:
 	  delete[] xmitPacket;
 	  GlobalGrid::GGObject_Free(challenge);
   }
+  void aes_encrypt_packet(void* key,uint64_t* packet, size_t alignedSize) {
+    unsigned char* mander = (unsigned char*)packet;
+    aes_encrypt(key,packet);
+    for(size_t i = 16;i<alignedSize;i+=16) {
+      //XOR with previous ciphertext block
+      ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
+      ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
+      aes_encrypt(key,packet+i);
+    }
+  }
+  void aes_decrypt_packet(void* key, uint64_t* packet, size_t size) {
+    if(size % 16) {
+      return;
+    }
+    unsigned char* mander = (unsigned char*)packet;
+    aes_decrypt(key,packet);
+    for(size_t i = 16;i<size;i+=16) {
+      aes_decrypt(key,packet+i);
+      ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
+      ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
+    }
+  }
+  
   void NtfyPacket(std::shared_ptr<GlobalGrid::VSocket> socket,unsigned char* packetData, size_t packetLength) {
-    
+    if((size_t)packetData % 8) {
+      throw "Driver error. Packets must be aligned on 64-bit boundaries.";
+    }
     if(sessions.find(socket) == sessions.end()) {
       
       //We should have an AES key in our packet here encrypted with our public key.
@@ -212,9 +237,7 @@ public:
       }
       
       Session session = *sessions.find(socket);
-      for(size_t i = 0;i<packetLength;i+=16) {
-	aes_decrypt(session.key,packetData+i);
-      }
+      aes_decrypt_packet(session.key,(uint64_t*)packetData,packetLength);
       
       switch(*packetData) {
 	case 0:
@@ -238,12 +261,12 @@ public:
 	    return;
 	  }
 	  
-	  unsigned char response[32];
+	  uint64_t response_buffer[4];
+	  unsigned char* response = (unsigned char*)response_buffer;
 	  memset(response,0,32);
 	  response[0] = 1;
 	  memcpy(response+1,challenge_bytes,16);
-	  aes_encrypt(session.key,response);
-	  aes_encrypt(session.key,response+16);
+	  aes_encrypt_packet(session.key,response_buffer,32);
 	  socket->Send(response,32);
 	  GlobalGrid::GGObject_Free(challenge);
 	  
@@ -273,16 +296,15 @@ public:
 	  size_t aligned = 1+2+key_size;
 	  aligned+=16-(aligned % 16);
 	  
-	  unsigned char* packet = new unsigned char[aligned];
+	  unsigned char* packet = (unsigned char*)new uint64_t[aligned/8];
 	  packet[0] = 3;
 	  memcpy(packet+1,&keySize,2);
 	  memcpy(packet+1+2,key_bytes,key_size);
-	  for(size_t i = 0;i<aligned;i+=16) {
-	    aes_encrypt(session.key,packet+i);
-	  }
+	  aes_encrypt_packet(session.key,(uint64_t*)packet,aligned);
 	  
-	  socket->Send(packet,aligned);
-	  delete[] packet;
+	  socket->Send(packet,aligned);	  
+
+	  delete[] (uint64_t*)packet;
 	  GlobalGrid::GGObject_Free(key);
 	  
 	}
