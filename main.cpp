@@ -35,11 +35,6 @@ int main(int argc, char** argv) {
   
   
   
-  
-  
-  printf("======================================\n");
-printf("Free Speech Project -- System Demon\n");
-printf("======================================\n");
 
 
 
@@ -86,7 +81,13 @@ if(argc>1) {
   }else {
     if(strcmp(argv[1],"import") == 0) {
       unsigned char mander[4096];
-      int len = read(STDIN_FILENO,mander,4096);
+      
+      int len = 0;
+      int cl;
+      while((cl = read(STDIN_FILENO,mander+len,4096-len))>0) {
+	len+=cl;
+	printf("Read\n");
+      }
       void* key = RSA_Key(mander,len);
       if(key == 0) {
 	printf("Invalid key. Cannot import.\n");
