@@ -58,6 +58,7 @@ void* RSA_Key(unsigned char* data, size_t len)
   RSA* msa = RSA_new();
   msa->n = ReadBig(str); //Public modulus
   msa->e = ReadBig(str); //Public exponent
+  
   if(str.length) {
     msa->d = ReadBig(str); //Private exponent
     msa->p = ReadBig(str); //Secret prime factor
@@ -65,8 +66,9 @@ void* RSA_Key(unsigned char* data, size_t len)
     msa->dmp1 = ReadBig(str); //d mod (p-1)
     msa->dmq1 = ReadBig(str); //d mod (q-1)
     msa->iqmp = ReadBig(str); //q^-1 mod p
-    return msa;
+    
   }
+  return msa;
   }catch(const char* err) {
     return 0;
   }
