@@ -150,9 +150,8 @@ public:
 	  uint16_t pc_sz = (uint16_t)challenge_size; //TODO: Transmit size of RSA encrypted blob along with actual blob
 	  memcpy(xmitPacket+1,&pc_sz,2);
 	  memcpy(xmitPacket+1+2,challenge_bytes,challenge_size);
-	  for(size_t i = 0;i<aligned_challenge;i+=16) {
-	    aes_encrypt(route.key,xmitPacket+i);
-	  }
+	  aes_encrypt_packet(route.key,xmitPacket,aligned_challenge);
+	  
 	  socket->Send(xmitPacket,aligned_challenge);
 	  delete[] xmitPacket;
 	  GlobalGrid::GGObject_Free(challenge);
