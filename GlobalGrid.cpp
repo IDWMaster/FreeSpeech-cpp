@@ -290,6 +290,10 @@ public:
 	{
 	  //Received public encryption key
 	  void* key = RSA_Key(packetData+1,packetLength-1);
+	  if(key == 0) {
+	    printf("ERROR: Invalid encryption key.\n");
+	    return;
+	  }
 	  char thumbprint[33];
 	  RSA_thumbprint(key,thumbprint);
 	  thumbprint[32] = 0;
