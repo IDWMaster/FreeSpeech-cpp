@@ -225,6 +225,8 @@ public:
 	  memcpy(&len,packetData+1,2);
 	  void* challenge = RSA_Decrypt(privkey,packetData+1+2,len);
 	  if(challenge == 0) {
+	    //TODO: Unable to decrypt? Are we using the wrong private key; or public key during transmission?
+	    printf("Unable to decrypt challenge\n");
 	    return;
 	  }
 	  unsigned char* challenge_bytes;
@@ -379,19 +381,17 @@ public:
    delete[] mander;
   }
   void Handshake(const std::shared_ptr<GlobalGrid::VSocket>& socket, void* remoteKey) {
-    //Remote thumbprint + AES session key
-    unsigned char thumbprint[16];
+    
     Session session(socket);
     session.verified = true; //If they can send back a response (properly encoded; that is); we know that we're verified.
     secure_random_bytes(session.key,32);
-    RSA_thumbprint(remoteKey,thumbprint);
     //Encrypt second part of message containing AES session key
     void* buffy = RSA_Encrypt(remoteKey,session.key,32);
     unsigned char* buffy_bytes;
     size_t buffy_size;
     GlobalGrid::Buffer_Get(buffy,&buffy_bytes,&buffy_size); //Be careful. Buffy bytes!
     unsigned char* mander = new unsigned char[16+buffy_size];
-    memcpy(mander,thumbprint,16);
+    memcpy(mander,localGuid.value,16);
     memcpy(mander+16,buffy_bytes,buffy_size);
     socket->Send(mander,16+buffy_size); //Send Charmander into battle.
     sessions.insert(session);
