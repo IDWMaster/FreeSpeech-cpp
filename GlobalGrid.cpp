@@ -251,6 +251,8 @@ public:
 	  if(memcmp(session.challenge,packetData+1,16) == 0) {
 	    session.verified = true;
 	    printf("Identity verified.\n");
+	  }else {
+	    printf("Identity verification failed.\n");
 	  }
 	}
 	  break;
