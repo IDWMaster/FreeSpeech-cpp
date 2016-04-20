@@ -171,12 +171,13 @@ public:
       return;
     }
     unsigned char* mander = (unsigned char*)packet;
-    aes_decrypt(key,packet);
-    for(size_t i = 16;i<size;i+=16) {
+    for(size_t i = size-16;i>=16;i-=16) {
       aes_decrypt(key,packet+i);
       ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
       ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
     }
+    aes_decrypt(key,packet);
+    
   }
   
   void NtfyPacket(std::shared_ptr<GlobalGrid::VSocket> socket,unsigned char* packetData, size_t packetLength) {
@@ -248,7 +249,7 @@ public:
 	  void* challenge = RSA_Decrypt(privkey,packetData+1+2,len);
 	  if(challenge == 0) {
 	    //TODO: Unable to decrypt? Are we using the wrong private key; or public key during transmission?
-	    printf("Unable to decrypt challenge\n");
+	    printf("Unable to decrypt challenge (challenge size == %i)\n",(int)len);
 	    return;
 	  }
 	  unsigned char* challenge_bytes;
