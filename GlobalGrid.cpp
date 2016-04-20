@@ -160,7 +160,7 @@ public:
   void NtfyPacket(std::shared_ptr<GlobalGrid::VSocket> socket,unsigned char* packetData, size_t packetLength) {
     
     if(sessions.find(socket) == sessions.end()) {
-      printf("Got new session\n");
+      
       //We should have an AES key in our packet here encrypted with our public key.
       
       
@@ -203,6 +203,7 @@ public:
 	GlobalGrid::GGObject_Free(packet);
       }
     }else {
+      printf("Got data packet\n");
       //Bind to existing Session.
       if(packetLength % 16 != 0) {
 	//Invalid packet.
