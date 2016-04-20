@@ -150,7 +150,7 @@ public:
 	  uint16_t pc_sz = (uint16_t)challenge_size; //TODO: Transmit size of RSA encrypted blob along with actual blob
 	  memcpy(xmitPacket+1,&pc_sz,2);
 	  memcpy(xmitPacket+1+2,challenge_bytes,challenge_size);
-	  aes_encrypt_packet(route.key,xmitPacket,aligned_challenge);
+	  aes_encrypt_packet(route.key,(uint64_t*)xmitPacket,aligned_challenge);
 	  
 	  socket->Send(xmitPacket,aligned_challenge);
 	  delete[] xmitPacket;
