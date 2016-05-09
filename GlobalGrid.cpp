@@ -181,6 +181,7 @@ public:
   }
   
   void NtfyPacket(std::shared_ptr<GlobalGrid::VSocket> socket,unsigned char* packetData, size_t packetLength) {
+    printf("GGDriver got packet\n");
     if((size_t)packetData % 8) {
       throw "Driver error. Packets must be aligned on 64-bit boundaries.";
     }
