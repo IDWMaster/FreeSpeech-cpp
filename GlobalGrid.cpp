@@ -162,8 +162,8 @@ public:
     aes_encrypt(key,packet);
     for(size_t i = 16;i<alignedSize;i+=16) {
       //XOR with previous ciphertext block
-      ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
-      ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
+     // ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
+     // ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
       aes_encrypt(key,packet+i);
     }
   }
@@ -174,8 +174,8 @@ public:
     unsigned char* mander = (unsigned char*)packet;
     for(size_t i = size-16;i>=16;i-=16) {
       aes_decrypt(key,mander+i);
-      ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
-      ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
+      //((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
+      //((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
     }
     aes_decrypt(key,packet);
     
@@ -242,7 +242,7 @@ public:
 	printf("WARNING: Unaligned memory address\n");
       }
       Session session = *sessions.find(socket);
-      //TODO: Memory corruption in aes_decrypt_packet.
+      //TODO: Multi-block decryption not working (CBC error)
       aes_decrypt_packet(session.key,(uint64_t*)packetData,packetLength);
    
       switch(*packetData) {
