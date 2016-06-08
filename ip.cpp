@@ -115,10 +115,10 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
       retval->socketMappings[results.receivedFrom] = s;
     }
     GlobalGrid::GlobalGrid_NtfyPacket(connectionManager,s,(unsigned char*)buffy,results.outlen);
-    retval->sock->Receive(buffy,1024*4,*cb);
+    retval->sock->Receive(buffy,512*8,*cb);
     //TODO: Delete cb AND buffy on destruction of protocol driver.
   });
-  retval->sock->Receive(buffy,1024*4,*cb);
+  retval->sock->Receive(buffy,512*8,*cb);
   return retval;
 }
 

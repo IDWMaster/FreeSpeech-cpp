@@ -44,6 +44,8 @@ void* privkey = 0;
 
 bool(*fptr)(void*,unsigned char*,size_t);
 
+
+
 void* thisptr = System::ABI::C([&](unsigned char* data, size_t len){
   privkey = RSA_Key(data,len);
     if(privkey == 0) {
@@ -110,7 +112,6 @@ thumbprint[32] = 0;
 RSA_thumbprint(privkey,thumbprint);
 printf("Your private key thumbprint is %s\n",thumbprint);
 void* router = GlobalGrid::GlobalGrid_InitRouter(privkey);
-
 
 
 printf("Registering IP protocol driver with system....\n");

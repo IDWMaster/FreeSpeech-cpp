@@ -172,7 +172,7 @@ public:
     }
     unsigned char* mander = (unsigned char*)packet;
     for(size_t i = size-16;i>=16;i-=16) {
-      aes_decrypt(key,packet+i);
+      aes_decrypt(key,mander+i);
       ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
       ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
     }
@@ -236,10 +236,13 @@ public:
 	//Invalid packet.
 	return;
       }
-      
+      if((size_t)packetData % 16) {
+	printf("WARNING: Unaligned memory address\n");
+      }
       Session session = *sessions.find(socket);
+      //TODO: Memory corruption in aes_decrypt_packet.
       aes_decrypt_packet(session.key,(uint64_t*)packetData,packetLength);
-      
+   
       switch(*packetData) {
 	case 0:
 	  //Challenge request
@@ -247,6 +250,9 @@ public:
 	  //Decrypt challenge
 	  uint16_t len;
 	  memcpy(&len,packetData+1,2);
+	  if(len>packetLength-1-2) {
+	    return;
+	  }
 	  void* challenge = RSA_Decrypt(privkey,packetData+1+2,len);
 	  if(challenge == 0) {
 	    //TODO: Unable to decrypt? Are we using the wrong private key; or public key during transmission?
