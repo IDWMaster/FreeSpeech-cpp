@@ -162,9 +162,9 @@ public:
     aes_encrypt(key,packet);
     for(size_t i = 16;i<alignedSize;i+=16) {
       //XOR with previous ciphertext block
-     // ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
-     // ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
-      aes_encrypt(key,packet+i);
+      ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
+      ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
+      aes_encrypt(key,mander+i);
     }
   }
   void aes_decrypt_packet(void* key, uint64_t* packet, size_t size) {
@@ -174,8 +174,8 @@ public:
     unsigned char* mander = (unsigned char*)packet;
     for(size_t i = size-16;i>=16;i-=16) {
       aes_decrypt(key,mander+i);
-      //((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
-      //((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
+      ((uint64_t*)(mander+i))[0] ^= ((uint64_t*)(mander+i-16))[0];
+      ((uint64_t*)(mander+i))[1] ^= ((uint64_t*)(mander+i-16))[1];
     }
     aes_decrypt(key,packet);
     
