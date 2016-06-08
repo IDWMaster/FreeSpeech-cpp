@@ -139,6 +139,7 @@ public:
   }
   
   void SendChallenge(void* remoteKey, Session& route, const std::shared_ptr<GlobalGrid::VSocket>& socket) {
+    //Construct challenge
     void* challenge = RSA_Encrypt(remoteKey,(unsigned char*)route.challenge,16);
 	  unsigned char* challenge_bytes;
 	  size_t challenge_size;
@@ -147,7 +148,7 @@ public:
 	  aligned_challenge+=16-(aligned_challenge % 16);
 	  unsigned char* xmitPacket = new unsigned char[aligned_challenge];
 	  memset(xmitPacket,0,aligned_challenge);
-	  uint16_t pc_sz = (uint16_t)challenge_size; //TODO: Transmit size of RSA encrypted blob along with actual blob
+	  uint16_t pc_sz = (uint16_t)challenge_size;
 	  memcpy(xmitPacket+1,&pc_sz,2);
 	  memcpy(xmitPacket+1+2,challenge_bytes,challenge_size);
 	  aes_encrypt_packet(route.key,(uint64_t*)xmitPacket,aligned_challenge);
@@ -218,6 +219,7 @@ public:
 	if(remoteKey) {
 	  SendChallenge(remoteKey,route,socket);
 	}else {
+	  printf("Missing key for %s\n",hexprint);
 	  //We don't have a remote key. Request it.
 	  unsigned char izard[16];
 	  memset(izard,0,16);
