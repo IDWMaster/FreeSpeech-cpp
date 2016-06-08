@@ -182,7 +182,7 @@ public:
   }
   
   void NtfyPacket(std::shared_ptr<GlobalGrid::VSocket> socket,unsigned char* packetData, size_t packetLength) {
-    printf("GGDriver got packet\n");
+   
     if((size_t)packetData % 8) {
       throw "Driver error. Packets must be aligned on 64-bit boundaries.";
     }
@@ -219,7 +219,6 @@ public:
 	if(remoteKey) {
 	  SendChallenge(remoteKey,route,socket);
 	}else {
-	  printf("Missing key for %s\n",hexprint);
 	  //We don't have a remote key. Request it.
 	  unsigned char izard[16];
 	  memset(izard,0,16);
@@ -376,6 +375,8 @@ public:
 	  
 	}
 	  break;
+	default:
+	  printf("Unknown OPCODE\n");
       }
     }
   }
