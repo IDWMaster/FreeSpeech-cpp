@@ -182,12 +182,12 @@ public:
   }
   
   void NtfyPacket(std::shared_ptr<GlobalGrid::VSocket> socket,unsigned char* packetData, size_t packetLength) {
-   
+   printf("Got packet?\n");
     if((size_t)packetData % 8) {
       throw "Driver error. Packets must be aligned on 64-bit boundaries.";
     }
     if(sessions.find(socket) == sessions.end()) {
-      
+      printf("Session not fount.\n");
       //We should have an AES key in our packet here encrypted with our public key.
       
       
@@ -241,7 +241,6 @@ public:
 	printf("WARNING: Unaligned memory address\n");
       }
       Session session = *sessions.find(socket);
-      //TODO: Multi-block decryption not working (CBC error)
       aes_decrypt_packet(session.key,(uint64_t*)packetData,packetLength);
    
       switch(*packetData) {
