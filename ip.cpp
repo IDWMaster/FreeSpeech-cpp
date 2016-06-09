@@ -109,11 +109,9 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
       s = std::make_shared<IPSocket>(retval->sock);
       s->ep = results.receivedFrom;
       retval->socketMappings[results.receivedFrom] = s;
-      if(!retval->socketMappings[results.receivedFrom].lock()) {
-	printf("Error: Couldn't find matching record...\n");
-	abort();
-      }
     }
+   
+    printf("Received IP packet from port %i\n",ep.port);
     GlobalGrid::GlobalGrid_NtfyPacket(connectionManager,s,(unsigned char*)buffy,results.outlen);
     retval->sock->Receive(buffy,512*8,*cb);
     //TODO: Delete cb AND buffy on destruction of protocol driver.
