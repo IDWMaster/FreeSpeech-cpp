@@ -21,7 +21,7 @@
 #include "crypto.h"
 #include "cppext/cppext.h"
 #include <map>
-
+#include <netinet/in.h>
 
 class IPSocket:public GlobalGrid::VSocket {
 public:
@@ -110,8 +110,10 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
       s->ep = results.receivedFrom;
       retval->socketMappings[results.receivedFrom] = s;
     }
+   char ipaddr[INET6_ADDRSTRLEN];
+   ep.ip.ToString(ipaddr);
    
-    printf("Received IP packet from port %i\n",ep.port);
+    printf("Received IP packet from %s:%i\n",ipaddr,ep.port);
     GlobalGrid::GlobalGrid_NtfyPacket(connectionManager,s,(unsigned char*)buffy,results.outlen);
     retval->sock->Receive(buffy,512*8,*cb);
     //TODO: Delete cb AND buffy on destruction of protocol driver.
