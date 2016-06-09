@@ -43,6 +43,7 @@ public:
     sock->Send(data,sz,ep);
   }
   ~IPSocket() {
+    printf("Socket disposed\n");
   }
 };
 
@@ -94,11 +95,6 @@ std::shared_ptr< GlobalGrid::VSocket > MakeSocket(const System::Net::IPEndpoint&
 
 
 
-/**
- * Six degrees of separation app
- * Have a list of people near by, find out how many degrees of separation they are from each other
- * (network of people; you know Michael, who knows Jimmy, who knows Him)
- * */
 
 
 std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionManager, const System::Net::IPEndpoint& ep)

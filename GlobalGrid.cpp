@@ -240,6 +240,7 @@ public:
       if((size_t)packetData % 16) {
 	printf("WARNING: Unaligned memory address\n");
       }
+      
       Session session = *sessions.find(socket);
       aes_decrypt_packet(session.key,(uint64_t*)packetData,packetLength);
    
