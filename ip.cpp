@@ -105,8 +105,7 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
   *cb = System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){
     
     std::shared_ptr<IPSocket> s = retval->socketMappings[results.receivedFrom].lock();
-    
-    if(!s) {
+    if(!((bool)s)) {
       s = std::make_shared<IPSocket>(retval->sock);
       s->ep = results.receivedFrom;
       retval->socketMappings[results.receivedFrom] = s;
