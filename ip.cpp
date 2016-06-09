@@ -105,10 +105,14 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
   *cb = System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){
     
     std::shared_ptr<IPSocket> s = retval->socketMappings[results.receivedFrom].lock();
-    if(!((bool)s)) {
+    if(!s) {
       s = std::make_shared<IPSocket>(retval->sock);
       s->ep = results.receivedFrom;
       retval->socketMappings[results.receivedFrom] = s;
+      if(!retval->socketMappings[results.receivedFrom].lock()) {
+	printf("Error: Couldn't find matching record...\n");
+	abort();
+      }
     }
     GlobalGrid::GlobalGrid_NtfyPacket(connectionManager,s,(unsigned char*)buffy,results.outlen);
     retval->sock->Receive(buffy,512*8,*cb);
