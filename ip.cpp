@@ -29,6 +29,7 @@ public:
   std::shared_ptr<System::Net::UDPSocket> sock;
   IPSocket(const std::shared_ptr<System::Net::UDPSocket>& sock) {
     this->sock = sock;
+    printf("New socket\n");
   }
   void* Serialize() {
     void* retval = GlobalGrid::Buffer_Create(16+2);
