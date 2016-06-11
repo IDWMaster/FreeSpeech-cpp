@@ -32,6 +32,7 @@ public:
    * @summary Serializes this VSocket to a Buffer, which must be freed by calling GGObject_Free
    * */
   virtual void* Serialize() = 0;
+  virtual void GetProtocolID(void* outbuff) = 0;
   virtual ~VSocket(){};
 };
 

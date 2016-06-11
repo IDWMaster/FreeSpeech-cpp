@@ -24,7 +24,11 @@
 #include "database.h"
 #include "cppext/cppext.h"
 #include <map>
-
+#include <chrono>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
 class Buffer:public IDisposable {
   public:
     size_t len;
@@ -62,7 +66,6 @@ class Session {
 public:
   unsigned char key[32];
   std::shared_ptr<GlobalGrid::VSocket> socket;
-  
   uint64_t challenge[2];
   
   
@@ -86,15 +89,132 @@ public:
   }
 };
 
+void* MMAP_Map(const char* filename, size_t& maplen, int& fd) {
+  struct stat us;
+  if(!stat(filename,&us)) {
+    //Map in file
+    fd = open(filename,O_RDWR);
+    maplen = us.st_size;
+    return mmap(0,us.st_size,PROT_READ | PROT_WRITE,MAP_SHARED,fd,0);
+  }else {
+    //Create file, and map
+    maplen = 1024*1024;
+    fd = open(filename,O_RDWR | O_CREAT,S_IRUSR | S_IWUSR);
+    fallocate(fd,0,0,maplen);
+    return mmap(0,maplen,PROT_READ | PROT_WRITE,MAP_SHARED,fd,0);
+  }
+}
+void* MMAP_Realloc(void* mapping, int fd, size_t oldSize, size_t newSize) {
+  
+  fallocate(fd,0,0,newSize);
+  return mremap(mapping,oldSize,newSize,MREMAP_MAYMOVE);
+}
+
 
 class GGRouter:public IDisposable {
 public:
   void* privkey;
   std::map<GlobalGrid::Guid,std::shared_ptr<GlobalGrid::ProtocolDriver>> drivers;
   std::set<Session> sessions; //Active list of sessions (TODO these have to be garbage-collected somehow).
+  std::map<std::chrono::steady_clock::time_point,std::weak_ptr<GlobalGrid::VSocket>> socketActivity; //Time since a given socket has received valid data
+  std::map<std::weak_ptr<GlobalGrid::VSocket>,std::chrono::steady_clock> socketActivity_reverse; //Reverse lookup for time intervals
   std::map<GlobalGrid::Guid,std::weak_ptr<GlobalGrid::VSocket>> routes; //Known routes
+  int knownpeers_fd;
   GlobalGrid::Guid localGuid;
+  size_t knownPeers_size;
+  unsigned char* knownPeers; //Known peers
+  void balance() {
+    //TODO: Lukeup known VSockets in database
+    uint64_t end;
+    memcpy(&end,knownPeers,8);
+    size_t position = 0;
+    while(position<end) {
+      uint32_t len;
+      memcpy(&len,knownPeers+position,4);
+      position+=4;
+      
+    }
+  }
+  void* Serialize(const std::shared_ptr<GlobalGrid::VSocket>& s) {
+    void* buffer = s->Serialize();
+    unsigned char* bytes;
+    size_t len;
+    GlobalGrid::Buffer_Get(&bytes,&len);
+    void* retval = GlobalGrid::Buffer_Create(16+len);
+    unsigned char* ret_bytes;
+    size_t ret_len;
+    GlobalGrid::Buffer_Get(&ret_bytes,&ret_len);
+    s->GetProtocolID(ret_bytes);
+    memcpy(ret_bytes+16,bytes,len);
+    GlobalGrid::GGObject_Free(buffer);
+    return retval;
+  }
+  void Insert_Peer(const std::shared_ptr<GlobalGrid::VSocket>& s) {
+    uint64_t end;
+    memcpy(&end,knownPeers,8);
+    if(end == 0) {
+      end = 8;
+      memcpy(knownPeers,&end,8);
+    }
+    void* buffy = Serialize(s);
+    unsigned char* bytes;
+    size_t len;
+    GlobalGrid::Buffer_Get(buffy,&bytes,&len);
+    size_t oldsz = knownPeers_size;
+    bool changed = false;
+    while(len+end+4>knownPeers_size) {
+      knownPeers_size*=2;
+      changed = true;
+    }
+    //TODO: Realloc (increase file size)
+    if(changed) {
+      MMAP_Realloc(knownPeers,knownpeers_fd,oldsz,knownPeers_size);
+    }
+    uint32_t dlen = (uint32_t)len;
+    memcpy(knownPeers+end,&dlen,4);
+    memcpy(knownPeers+end+4,bytes,len);
+    end+=4+dlen;
+    memcpy(knownPeers,&end,8);
+    GlobalGrid::GGObject_Free(buffy);
+  }
+  void GC() {
+    
+    
+    uint64_t timeout_seconds = 120;
+    
+    while(socketActivity.size()) {
+      auto bot = socketActivity.begin();
+      std::chrono::seconds tdiff = std::chrono::steady_clock::now()-bot->first;
+      if(tdiff>timeout_seconds) {
+	Session s = bot->second;
+	sessions.erase(s);
+	socketActivity.erase(socketActivity_reverse[s.socket]);
+	socketActivity_reverse.erase(s.socket);
+	
+      }else {
+	break;
+      }
+      
+    }
+    
+    if(sessions.size() == 0) {
+      balance();
+    }
+  }
+  void RefreshSocket(const std::shared_ptr<GlobalGrid::VSocket>& s) {
+    if(socketActivity_reverse.find(s) != socketActivity_reverse.end()) {
+      socketActivity.erase(socketActivity_reverse[s]);
+    }else {
+      GC();
+    }
+    std::chrono::steady_clock::time_point tp = std::chrono::steady_clock::now();
+    socketActivity[tp] = s;
+    socketActivity_reverse[s] = tp;
+  }
+  
   GGRouter(void* privkey) {
+    
+    knownPeers = (unsigned char*)MMAP_Map("known_hosts",knownPeers_size,knownpeers_fd);
     this->privkey = privkey;
     RSA_thumbprint(privkey,(unsigned char*)localGuid.value);
   }
