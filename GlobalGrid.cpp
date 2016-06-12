@@ -138,6 +138,7 @@ public:
       position+=4;
       void* key = RSA_Key(knownPeers+position,len);
       Handshake(s,key);
+      position+=len;
       RSA_Free(key);
     }
   }
@@ -233,6 +234,7 @@ public:
     knownPeers = (unsigned char*)MMAP_Map("known_hosts",knownPeers_size,knownpeers_fd);
     this->privkey = privkey;
     RSA_thumbprint(privkey,(unsigned char*)localGuid.value);
+    balance();
   }
   
   //Use the DHT Kademlia algorithm to find the best node that we're aware of.
