@@ -27,8 +27,11 @@ class IPSocket:public GlobalGrid::VSocket {
 public:
   System::Net::IPEndpoint ep;
   std::shared_ptr<System::Net::UDPSocket> sock;
-  IPSocket(const std::shared_ptr<System::Net::UDPSocket>& sock) {
+  uint64_t protoID[2];
+  IPSocket(const std::shared_ptr<System::Net::UDPSocket>& sock, uint64_t* protoID) {
     this->sock = sock;
+    this->protoID[0] = protoID[0];
+    this->protoID[1] = protoID[1];
     printf("New socket\n");
   }
   void* Serialize() {
@@ -40,6 +43,9 @@ public:
     memcpy(mander+16,&ep.port,2);
     return retval;
   }
+void GetProtocolID(void* outbuff) {
+  memcpy(outbuff,protoID,16);
+}
   void Send(const void* data, size_t sz) {
     sock->Send(data,sz,ep);
   }
@@ -60,7 +66,7 @@ public:
   
   std::shared_ptr< GlobalGrid::VSocket > Deserialize(unsigned char* buffer, size_t bufflen) {
     if(bufflen>=16+2) {
-      std::shared_ptr<IPSocket> retval = std::make_shared<IPSocket>(sock);
+      std::shared_ptr<IPSocket> retval = std::make_shared<IPSocket>(sock,id.value);
       memcpy(retval->ep.ip.raw,buffer,16);
       memcpy(&(retval->ep.port),buffer+16,2);
       return retval;
@@ -69,7 +75,7 @@ public:
     }
   }
 std::shared_ptr< GlobalGrid::VSocket > MakeSocket(const System::Net::IPEndpoint& ep) {
-  std::shared_ptr<IPSocket> retval = std::make_shared<IPSocket>(sock);
+  std::shared_ptr<IPSocket> retval = std::make_shared<IPSocket>(sock,id.value);
   retval->ep = ep;
   socketMappings[ep] = retval;
   System::Net::IPEndpoint mp;
@@ -106,7 +112,7 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
     
     std::shared_ptr<IPSocket> s = retval->socketMappings[results.receivedFrom].lock();
     if(!s) {
-      s = std::make_shared<IPSocket>(retval->sock);
+      s = std::make_shared<IPSocket>(retval->sock,retval->id.value);
       s->ep = results.receivedFrom;
       retval->socketMappings[results.receivedFrom] = s;
     }

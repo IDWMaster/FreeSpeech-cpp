@@ -46,6 +46,9 @@ public:
     value[0] = val[0];
     value[1] = val[1];
   }
+  Guid(const unsigned char* val) {
+    memcpy(value,val,16);
+  }
   bool operator==(const Guid& other) const {
     return (value[0] == other.value[0]) && (value[1] == other.value[1]);
   }

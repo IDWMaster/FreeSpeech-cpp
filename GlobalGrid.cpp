@@ -116,8 +116,8 @@ public:
   void* privkey;
   std::map<GlobalGrid::Guid,std::shared_ptr<GlobalGrid::ProtocolDriver>> drivers;
   std::set<Session> sessions; //Active list of sessions (TODO these have to be garbage-collected somehow).
-  std::map<std::chrono::steady_clock::time_point,std::weak_ptr<GlobalGrid::VSocket>> socketActivity; //Time since a given socket has received valid data
-  std::map<std::weak_ptr<GlobalGrid::VSocket>,std::chrono::steady_clock> socketActivity_reverse; //Reverse lookup for time intervals
+  std::map<std::chrono::steady_clock::time_point,std::shared_ptr<GlobalGrid::VSocket>> socketActivity; //Time since a given socket has received valid data
+  std::map<std::shared_ptr<GlobalGrid::VSocket>,std::chrono::steady_clock::time_point> socketActivity_reverse; //Reverse lookup for time intervals
   std::map<GlobalGrid::Guid,std::weak_ptr<GlobalGrid::VSocket>> routes; //Known routes
   int knownpeers_fd;
   GlobalGrid::Guid localGuid;
@@ -132,24 +132,34 @@ public:
       uint32_t len;
       memcpy(&len,knownPeers+position,4);
       position+=4;
-      
+      std::shared_ptr<GlobalGrid::VSocket> s = Deserialize(knownPeers+position,len);
+      position+=len;
+      memcpy(&len,knownPeers+position,4);
+      position+=4;
+      void* key = RSA_Key(knownPeers+position,len);
+      Handshake(s,key);
+      RSA_Free(key);
     }
+  }
+  std::shared_ptr<GlobalGrid::VSocket> Deserialize(unsigned char* bytes, size_t len) {
+    return drivers[GlobalGrid::Guid(bytes)]->Deserialize(bytes+16,len-16);
+    
   }
   void* Serialize(const std::shared_ptr<GlobalGrid::VSocket>& s) {
     void* buffer = s->Serialize();
     unsigned char* bytes;
     size_t len;
-    GlobalGrid::Buffer_Get(&bytes,&len);
+    GlobalGrid::Buffer_Get(buffer,&bytes,&len);
     void* retval = GlobalGrid::Buffer_Create(16+len);
     unsigned char* ret_bytes;
     size_t ret_len;
-    GlobalGrid::Buffer_Get(&ret_bytes,&ret_len);
+    GlobalGrid::Buffer_Get(retval,&ret_bytes,&ret_len);
     s->GetProtocolID(ret_bytes);
     memcpy(ret_bytes+16,bytes,len);
     GlobalGrid::GGObject_Free(buffer);
     return retval;
   }
-  void Insert_Peer(const std::shared_ptr<GlobalGrid::VSocket>& s) {
+  void Insert_Peer(const std::shared_ptr<GlobalGrid::VSocket>& s, unsigned char* key_bytes, size_t key_size) {
     uint64_t end;
     memcpy(&end,knownPeers,8);
     if(end == 0) {
@@ -173,7 +183,11 @@ public:
     uint32_t dlen = (uint32_t)len;
     memcpy(knownPeers+end,&dlen,4);
     memcpy(knownPeers+end+4,bytes,len);
-    end+=4+dlen;
+    dlen = (uint32_t)key_size;
+    memcpy(knownPeers+end+4+len,&key_size,4);
+    memcpy(knownPeers+end+4+len+4,key_bytes,key_size);
+    
+    end+=4+len+4+key_size;
     memcpy(knownPeers,&end,8);
     GlobalGrid::GGObject_Free(buffy);
   }
@@ -184,13 +198,15 @@ public:
     
     while(socketActivity.size()) {
       auto bot = socketActivity.begin();
-      std::chrono::seconds tdiff = std::chrono::steady_clock::now()-bot->first;
-      if(tdiff>timeout_seconds) {
-	Session s = bot->second;
-	sessions.erase(s);
-	socketActivity.erase(socketActivity_reverse[s.socket]);
-	socketActivity_reverse.erase(s.socket);
-	
+      if(std::chrono::steady_clock::now()-bot->first>std::chrono::seconds(timeout_seconds)) {
+	std::shared_ptr<GlobalGrid::VSocket> ms = bot->second;
+	auto foundSession = sessions.find(Session(ms));
+	if(foundSession != sessions.end()) {
+	  Session s = *foundSession;
+	  sessions.erase(s);
+	  socketActivity.erase(bot);
+	  socketActivity_reverse.erase(socketActivity_reverse.find(s.socket));
+	}
       }else {
 	break;
       }
@@ -203,7 +219,7 @@ public:
   }
   void RefreshSocket(const std::shared_ptr<GlobalGrid::VSocket>& s) {
     if(socketActivity_reverse.find(s) != socketActivity_reverse.end()) {
-      socketActivity.erase(socketActivity_reverse[s]);
+      socketActivity.erase(socketActivity.find(socketActivity_reverse[s]));
     }else {
       GC();
     }
