@@ -153,6 +153,10 @@ if(argc>1) {
 }
 
 
+unsigned char izard[16];
+memset(izard,0,16);
+GlobalGrid::GlobalGrid_SendPacket(router,izard,izard,1);
+
     char mander[256];
 auto messenger = System::MakeQueue([&](std::shared_ptr<System::Message> msg){
   unsigned char pingmsg = 0;
