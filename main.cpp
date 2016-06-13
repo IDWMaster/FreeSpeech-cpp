@@ -165,7 +165,11 @@ auto messenger = System::MakeQueue([&](std::shared_ptr<System::Message> msg){
 std::thread m([&](){
   
   while(true) {
-    mander[read(0,mander,256)] = 0;
+    int br = read(0,mander,256);
+    if(br <=0) {
+      break;
+    }
+    mander[br] = 0;
     messenger->Post(0);
   }
 });
