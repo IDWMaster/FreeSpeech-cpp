@@ -69,6 +69,7 @@ public:
       std::shared_ptr<IPSocket> retval = std::make_shared<IPSocket>(sock,id.value);
       memcpy(retval->ep.ip.raw,buffer,16);
       memcpy(&(retval->ep.port),buffer+16,2);
+      socketMappings[retval->ep] = retval;
       return retval;
     }else {
       return 0;
