@@ -299,7 +299,7 @@ public:
 	if((*bot).verified) {
 	  distance[0] = cdist[0];
 	  distance[1] = cdist[1];
-	  peerlist[currentPeer] = GlobalGrid::Guid((*bot).claimedThumbprint);
+	  peerlist[currentPeer] = GlobalGrid::Guid(bot->claimedThumbprint);
 	  currentPeer = (currentPeer + 1) % numPeers;
 	  if(foundPeers<numPeers) {
 	    foundPeers++;
@@ -381,6 +381,7 @@ public:
 	printf("Got new session\n");
 	//We have a new Session.
 	Session route(socket,buffer,packetData);
+	routes[route.claimedThumbprint] = route.socket;
 	sessions.insert(route);
 	//Respond with ACK, which verifies our identity
 	//Send challenge to verify remote identity.
@@ -544,7 +545,6 @@ public:
 	  uint32_t packetSize;
 	  memcpy(&packetSize,packetData,4);
 	  packetData+=16;
-	  printf("TODO: Got a routed packet!\n");
 	  if(dest == localGuid) {
 	    printf("TODO: Packet destined for ourselves\n");
 	    return;
@@ -581,20 +581,28 @@ public:
 	  if(numRoutes && (origin != candidateRoute)) {
 	    
 	    std::shared_ptr<GlobalGrid::VSocket> sock = routes[candidateRoute].lock();
+	    if(!sock) {
+	      printf("No route to host\n");
+	    }
 	    if(sock && (sessions.find(sock) != sessions.end())) {
+	      
 	      SendPacketRouted(*sessions.find(sock),packet,sz,ttl-1,dest);
 	    }
+	    
+	  }else {
+	    printf("No route to host\n");
 	  }
   }
   void SendPacketRouted(const Session& route, unsigned char* packet, size_t sz, unsigned char ttl, const GlobalGrid::Guid& dest) {
-   size_t pSize = 1+16+4+sz;
+   size_t pSize = 1+1+16+4+sz;
    pSize+=(16-(pSize % 16));
    unsigned char* mander = (unsigned char*)new uint64_t[pSize/8];
-   *mander = ttl;
-   memcpy(mander+1,dest.value,16);
+   *mander = 4;
+   *(mander+1) = ttl;
+   memcpy(mander+1+1,dest.value,16);
    uint32_t ss = sz;
-   memcpy(mander+1+16,&ss,4);
-   memcpy(mander+1+16+4,packet,sz);
+   memcpy(mander+1+1+16,&ss,4);
+   memcpy(mander+1+1+16+4,packet,sz);
    aes_encrypt_packet((void*)route.key,(uint64_t*)mander,pSize);
    
    route.socket->Send(mander,pSize);
@@ -606,6 +614,8 @@ public:
     session.verified = true; //If they can send back a response (properly encoded; that is); we know that we're verified
     uint64_t thumbprint[2];
     RSA_thumbprint(remoteKey,(unsigned char*)thumbprint);
+    session.claimedThumbprint[0] = thumbprint[0];
+    session.claimedThumbprint[1] = thumbprint[1];
     Insert_Peer(socket,thumbprint);
     secure_random_bytes(session.key,32);
     //Encrypt second part of message containing AES session key
@@ -617,6 +627,7 @@ public:
     memcpy(mander,localGuid.value,16);
     memcpy(mander+16,buffy_bytes,buffy_size);
     socket->Send(mander,16+buffy_size); //Send Charmander into battle.
+    routes[thumbprint] = socket;
     sessions.insert(session);
     delete[] mander;
     GlobalGrid::GGObject_Free(buffy);
