@@ -72,6 +72,7 @@ static inline void ToHexString(unsigned char* data, size_t sz, char* output) {
     output[c] = hex[((data[i] << 4) & 0xff) >> 4];//Get upper 4 bits
     c++; //This is how C++ was invented.
   }
+  output[sz*2] = 0;
 }
 
 static inline void FromHexString(const char* hex, unsigned char* output, size_t sz) {

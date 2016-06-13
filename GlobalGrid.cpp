@@ -145,9 +145,10 @@ public:
 	handcount++;
 	uint32_t len;
 	memcpy(&len,knownPeers+host.mapped_offset,4);
-	std::shared_ptr<GlobalGrid::VSocket> dsocket = Deserialize(knownPeers+host.mapped_offset+4+16,len-16);
+	std::shared_ptr<GlobalGrid::VSocket> dsocket = Deserialize(knownPeers+host.mapped_offset+4+16,len);
 	char mander[(16*2)+1];
 	ToHexString(knownPeers+host.mapped_offset+4,16,mander);
+	printf("Find auth %s\n",mander);
 	void* key = DB_FindAuthority(mander);
 	Handshake(dsocket,key);
 	RSA_Free(key);
@@ -250,14 +251,14 @@ public:
     uint64_t endEger;
     memcpy(&endEger,knownPeers,8);
     unsigned char* end = knownPeers+endEger;
-    unsigned char* ptr = knownPeers;
+    unsigned char* ptr = knownPeers+8;
     while((size_t)ptr<(size_t)end) {
       unsigned char* start = ptr;
       uint32_t len;
       memcpy(&len,ptr,4);
       KnownHost host(ptr+4);
       host.mapped_offset = (size_t)start-(size_t)knownPeers;
-      ptr+=len;
+      ptr+=4+16+len;
       knownHosts_index.insert(host);
     }
   }
@@ -358,7 +359,7 @@ public:
       throw "Driver error. Packets must be aligned on 64-bit boundaries.";
     }
     if(sessions.find(socket) == sessions.end()) {
-      printf("Session not fount.\n");
+      printf("Session not found.\n");
       //We should have an AES key in our packet here encrypted with our public key.
       
       
@@ -368,6 +369,8 @@ public:
       }
       void* packet = RSA_Decrypt(privkey,packetData+16,packetLength-16);
       if(packet == 0) { //Decryption failure.
+	printf("Failed to decrypt initial packet.");
+	sessions.erase(socket);
 	return;
       }
       unsigned char* buffer;
