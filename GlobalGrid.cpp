@@ -268,7 +268,6 @@ public:
     RSA_thumbprint(privkey,(unsigned char*)localGuid.value);
     //Read database
     peerparse();
-    balance();
   }
   
   //Use the DHT Kademlia algorithm to find the best node that we're aware of.
@@ -555,6 +554,10 @@ public:
     }
   }
   void SendPacket(unsigned char* packet, size_t sz, unsigned char ttl, const GlobalGrid::Guid& dest, const GlobalGrid::Guid& origin) {
+    if(sessions.size() == 0) {
+      //No active connections. Perform scan.
+      balance();
+    }
         //TODO: Find best route
 	    std::shared_ptr<GlobalGrid::VSocket> sock = routes[dest].lock();
 	    if(sock && (sessions.find(sock) != sessions.end())) {

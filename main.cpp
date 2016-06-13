@@ -123,6 +123,7 @@ if(argc>1) {
   routerBinding.port = atoi(argv[5]);
 }
 std::shared_ptr<IPProto::IIPDriver> deriver = IPProto::CreateDriver(router,routerBinding);
+GlobalGrid::GlobalGrid_RegisterProtocolDriver(router,deriver);
 void* locksock = deriver->SerializeLocalSocket();
 
 unsigned char* socket_data;
