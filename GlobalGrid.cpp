@@ -113,7 +113,7 @@ class KnownHost {
 public:
   GlobalGrid::Guid thumbprint;
   size_t mapped_offset; //Offset into memory-mapped file
-  KnownHost(const GlobalGrid::Guid& thumbrint) {
+  KnownHost(const GlobalGrid::Guid& thumbprint) {
     this->thumbprint = thumbprint;
   }
   bool operator<(const KnownHost& other) const {
@@ -147,7 +147,7 @@ public:
 	memcpy(&len,knownPeers+host.mapped_offset,4);
 	std::shared_ptr<GlobalGrid::VSocket> dsocket = Deserialize(knownPeers+host.mapped_offset+4+16,len);
 	char mander[(16*2)+1];
-	ToHexString(knownPeers+host.mapped_offset+4,16,mander);
+	ToHexString((unsigned char*)host.thumbprint.value,16,mander);
 	printf("Find auth %s\n",mander);
 	void* key = DB_FindAuthority(mander);
 	Handshake(dsocket,key);
@@ -257,6 +257,7 @@ public:
       uint32_t len;
       memcpy(&len,ptr,4);
       KnownHost host(ptr+4);
+      
       host.mapped_offset = (size_t)start-(size_t)knownPeers;
       ptr+=4+16+len;
       knownHosts_index.insert(host);

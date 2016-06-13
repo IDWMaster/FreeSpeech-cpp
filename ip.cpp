@@ -119,7 +119,6 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
    char ipaddr[INET6_ADDRSTRLEN];
    results.receivedFrom.ip.ToString(ipaddr);
    
-    printf("Received IP packet from %s:%i\n",ipaddr,results.receivedFrom.port);
     GlobalGrid::GlobalGrid_NtfyPacket(connectionManager,s,(unsigned char*)buffy,results.outlen);
     retval->sock->Receive(buffy,512*8,*cb);
     //TODO: Delete cb AND buffy on destruction of protocol driver.
