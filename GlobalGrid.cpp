@@ -109,7 +109,18 @@ void* MMAP_Realloc(void* mapping, int fd, size_t oldSize, size_t newSize) {
   fallocate(fd,0,0,newSize);
   return mremap(mapping,oldSize,newSize,MREMAP_MAYMOVE);
 }
-
+class KnownHost {
+public:
+  GlobalGrid::Guid thumbprint;
+  size_t mapped_offset; //Offset into memory-mapped file
+  KnownHost(const GlobalGrid::Guid& thumbrint) {
+    this->thumbprint = thumbprint;
+  }
+  bool operator<(const KnownHost& other) const {
+    return thumbprint<other.thumbprint;
+  }
+  
+};
 
 class GGRouter:public IDisposable {
 public:
@@ -119,28 +130,30 @@ public:
   std::map<std::chrono::steady_clock::time_point,std::shared_ptr<GlobalGrid::VSocket>> socketActivity; //Time since a given socket has received valid data
   std::map<std::shared_ptr<GlobalGrid::VSocket>,std::chrono::steady_clock::time_point> socketActivity_reverse; //Reverse lookup for time intervals
   std::map<GlobalGrid::Guid,std::weak_ptr<GlobalGrid::VSocket>> routes; //Known routes
+  std::set<KnownHost> knownHosts_index;
   int knownpeers_fd;
   GlobalGrid::Guid localGuid;
   size_t knownPeers_size;
   unsigned char* knownPeers; //Known peers
   void balance() {
     //TODO: Lukeup known VSockets in database
-    uint64_t end;
-    memcpy(&end,knownPeers,8);
-    size_t position = 0;
-    while(position<end) {
-      uint32_t len;
-      memcpy(&len,knownPeers+position,4);
-      position+=4;
-      std::shared_ptr<GlobalGrid::VSocket> s = Deserialize(knownPeers+position,len);
-      position+=len;
-      memcpy(&len,knownPeers+position,4);
-      position+=4;
-      void* key = RSA_Key(knownPeers+position,len);
-      Handshake(s,key);
-      position+=len;
-      RSA_Free(key);
+    size_t handcount = 0;
+    for(auto bot = knownHosts_index.begin();bot!= knownHosts_index.end();bot++) {
+      
+      KnownHost host = *bot;
+      if(routes.find(host.thumbprint) == routes.end()) {
+	handcount++;
+	uint32_t len;
+	memcpy(&len,knownPeers+host.mapped_offset,4);
+	std::shared_ptr<GlobalGrid::VSocket> dsocket = Deserialize(knownPeers+host.mapped_offset+4+16,len-16);
+	char mander[(16*2)+1];
+	ToHexString(knownPeers+host.mapped_offset+4,16,mander);
+	void* key = DB_FindAuthority(mander);
+	Handshake(dsocket,key);
+	RSA_Free(key);
+      }
     }
+    printf("Loaded %i VSockets from local cache.\n",(int)handcount);
   }
   std::shared_ptr<GlobalGrid::VSocket> Deserialize(unsigned char* bytes, size_t len) {
     return drivers[GlobalGrid::Guid(bytes)]->Deserialize(bytes+16,len-16);
@@ -160,37 +173,40 @@ public:
     GlobalGrid::GGObject_Free(buffer);
     return retval;
   }
-  void Insert_Peer(const std::shared_ptr<GlobalGrid::VSocket>& s, unsigned char* key_bytes, size_t key_size) {
-    uint64_t end;
-    memcpy(&end,knownPeers,8);
-    if(end == 0) {
-      end = 8;
+  
+  void Insert_Peer(const std::shared_ptr<GlobalGrid::VSocket>& s, const uint64_t* thumbprint) {
+    if(knownHosts_index.find(KnownHost(thumbprint)) == knownHosts_index.end()) {
+      void* buffy = Serialize(s);
+      unsigned char* bytes;
+      size_t len;
+      GlobalGrid::Buffer_Get(buffy,&bytes,&len);
+      size_t outputLen = 4+16+len;
+      void* output_buffer = GlobalGrid::Buffer_Create(outputLen);
+      unsigned char* obytes;
+      size_t olen;
+      GlobalGrid::Buffer_Get(output_buffer,&obytes,&olen);
+      uint32_t len_aligned = (uint32_t)len;
+      memcpy(obytes,&len_aligned,4);
+      memcpy(obytes+4,thumbprint,16);
+      memcpy(obytes+4+16,bytes,len);
+      GlobalGrid::GGObject_Free(buffy);
+      
+      uint64_t end;
+      memcpy(&end,knownPeers,8);
+      if(end == 0) {
+	end = 8;
+	memcpy(knownPeers,&end,8);
+      }
+      
+      memcpy(knownPeers+end,obytes,outputLen);
+      KnownHost host(thumbprint);
+      host.mapped_offset = end;
+      knownHosts_index.insert(host);
+      end+=outputLen;
       memcpy(knownPeers,&end,8);
+      GlobalGrid::GGObject_Free(output_buffer);
+      
     }
-    void* buffy = Serialize(s);
-    unsigned char* bytes;
-    size_t len;
-    GlobalGrid::Buffer_Get(buffy,&bytes,&len);
-    size_t oldsz = knownPeers_size;
-    bool changed = false;
-    while(len+end+4>knownPeers_size) {
-      knownPeers_size*=2;
-      changed = true;
-    }
-    //TODO: Realloc (increase file size)
-    if(changed) {
-      MMAP_Realloc(knownPeers,knownpeers_fd,oldsz,knownPeers_size);
-    }
-    uint32_t dlen = (uint32_t)len;
-    memcpy(knownPeers+end,&dlen,4);
-    memcpy(knownPeers+end+4,bytes,len);
-    dlen = (uint32_t)key_size;
-    memcpy(knownPeers+end+4+len,&key_size,4);
-    memcpy(knownPeers+end+4+len+4,key_bytes,key_size);
-    
-    end+=4+len+4+key_size;
-    memcpy(knownPeers,&end,8);
-    GlobalGrid::GGObject_Free(buffy);
   }
   void GC() {
     
@@ -229,11 +245,29 @@ public:
     socketActivity_reverse[s] = tp;
   }
   
+  void peerparse() {
+    //Read database
+    uint64_t endEger;
+    memcpy(&endEger,knownPeers,8);
+    unsigned char* end = knownPeers+endEger;
+    unsigned char* ptr = knownPeers;
+    while((size_t)ptr<(size_t)end) {
+      unsigned char* start = ptr;
+      uint32_t len;
+      memcpy(&len,ptr,4);
+      KnownHost host(ptr+4);
+      host.mapped_offset = (size_t)start-(size_t)knownPeers;
+      ptr+=len;
+      knownHosts_index.insert(host);
+    }
+  }
   GGRouter(void* privkey) {
     
     knownPeers = (unsigned char*)MMAP_Map("known_hosts",knownPeers_size,knownpeers_fd);
     this->privkey = privkey;
     RSA_thumbprint(privkey,(unsigned char*)localGuid.value);
+    //Read database
+    peerparse();
     balance();
   }
   
@@ -356,6 +390,7 @@ public:
 	
 	if(remoteKey) {
 	  SendChallenge(remoteKey,route,socket);
+	  RSA_Free(remoteKey);
 	}else {
 	  //We don't have a remote key. Request it.
 	  unsigned char izard[16];
@@ -426,6 +461,7 @@ public:
 	  if(memcmp(session.challenge,packetData+1,16) == 0) {
 	    session.verified = true;
 	    printf("Identity verified.\n");
+	    Insert_Peer(session.socket,session.claimedThumbprint);
 	  }else {
 	    printf("Identity verification failed.\n");
 	  }
@@ -559,7 +595,10 @@ public:
   void Handshake(const std::shared_ptr<GlobalGrid::VSocket>& socket, void* remoteKey) {
     
     Session session(socket);
-    session.verified = true; //If they can send back a response (properly encoded; that is); we know that we're verified.
+    session.verified = true; //If they can send back a response (properly encoded; that is); we know that we're verified
+    uint64_t thumbprint[2];
+    RSA_thumbprint(remoteKey,(unsigned char*)thumbprint);
+    Insert_Peer(socket,thumbprint);
     secure_random_bytes(session.key,32);
     //Encrypt second part of message containing AES session key
     void* buffy = RSA_Encrypt(remoteKey,session.key,32);
