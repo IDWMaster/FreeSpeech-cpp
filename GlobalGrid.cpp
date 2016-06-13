@@ -544,6 +544,7 @@ public:
 	  uint32_t packetSize;
 	  memcpy(&packetSize,packetData,4);
 	  packetData+=16;
+	  printf("TODO: Got a routed packet!\n");
 	  if(dest == localGuid) {
 	    printf("TODO: Packet destined for ourselves\n");
 	    return;
