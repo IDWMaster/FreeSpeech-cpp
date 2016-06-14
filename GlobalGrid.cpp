@@ -465,6 +465,8 @@ public:
 	  //Response to challenge (identity verification)
 	  if(memcmp(session.challenge,packetData+1,16) == 0) {
 	    session.verified = true;
+	    sessions.erase(session);
+	    sessions.insert(session);
 	    printf("Identity verified.\n");
 	    Insert_Peer(session.socket,session.claimedThumbprint);
 	  }else {
