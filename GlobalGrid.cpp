@@ -207,6 +207,26 @@ public:
       memcpy(knownPeers,&end,8);
       GlobalGrid::GGObject_Free(output_buffer);
       
+    }else {
+      void* buffy = Serialize(s);
+      unsigned char* bytes;
+      size_t len;
+      GlobalGrid::Buffer_Get(buffy,&bytes,&len);
+      size_t outputLen = 4+16+len;
+      void* output_buffer = GlobalGrid::Buffer_Create(outputLen);
+      unsigned char* obytes;
+      size_t olen;
+      GlobalGrid::Buffer_Get(output_buffer,&obytes,&olen);
+      uint32_t len_aligned = (uint32_t)len;
+      memcpy(obytes,&len_aligned,4);
+      memcpy(obytes+4,thumbprint,16);
+      memcpy(obytes+4+16,bytes,len);
+      GlobalGrid::GGObject_Free(buffy);
+      //TODO: Replace VSocket
+      printf("TODO: Replace VSocket in file.");
+      
+      
+      GlobalGrid::GGObject_Free(output_buffer);
     }
   }
   void GC() {
