@@ -209,7 +209,7 @@ public:
       
     }else {
       printf("TODO: Replace VSocket in file.");
-      KnownHost host = *knownHosts_index.find(thumbprint);
+      KnownHost host = *knownHosts_index.find(KnownHost(thumbprint));
       knownHosts_index.clear();
       //Erase entry at mapped_offset and insert at end
       uint32_t entry_vsocket_len;
