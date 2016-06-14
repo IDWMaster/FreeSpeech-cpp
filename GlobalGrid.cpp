@@ -220,7 +220,6 @@ public:
       bool matches = memcmp(bytes,knownPeers+host.mapped_offset+4+16,len) == 0;
       GlobalGrid::GGObject_Free(buffy);
       if(matches) {
-	printf("Socket matches\n");
 	return;
       }
       
