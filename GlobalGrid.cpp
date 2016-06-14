@@ -222,6 +222,7 @@ public:
       endPos-=4+16+entry_vsocket_len;
       memcpy(knownPeers,&endPos,8);
       peerparse();
+      Insert_Peer(s,thumbprint);
     }
   }
   void GC() {
