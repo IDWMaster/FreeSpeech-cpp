@@ -208,8 +208,23 @@ public:
       GlobalGrid::GGObject_Free(output_buffer);
       
     }else {
-      printf("TODO: Replace VSocket in file.");
+      //TODO: Check if socket matches
+      
       KnownHost host = *knownHosts_index.find(KnownHost(thumbprint));
+      
+      
+      void* buffy = Serialize(s);
+      unsigned char* bytes;
+      size_t len;
+      GlobalGrid::Buffer_Get(buffy,&bytes,&len);
+      bool matches = memcmp(bytes,knownPeers+host.mapped_offset+4+16,len) == 0;
+      GlobalGrid::GGObject_Free(buffy);
+      if(matches) {
+	printf("Socket matches\n");
+	return;
+      }
+      
+      printf("TODO: Replace VSocket in file.");
       knownHosts_index.clear();
       //Erase entry at mapped_offset and insert at end
       uint32_t entry_vsocket_len;
