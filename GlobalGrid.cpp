@@ -412,6 +412,7 @@ public:
       //Bind to existing Session.
       if(packetLength % 16 != 0) {
 	//Invalid packet.
+	printf("Invalid packet length. Got %i, which was not aligned to 16 bytes.\n",(int)packetLength);
 	return;
       }
       if((size_t)packetData % 16) {
