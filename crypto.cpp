@@ -17,94 +17,206 @@
  * */
 
 #include "crypto.h"
-#include "cppext/cppext.h"
-#include <openssl/aes.h>
-#include <openssl/rsa.h>
-#include <openssl/sha.h>
-#include <openssl/rand.h>
+#include <Windows.h>
+#include <assert.h>
+#include "cppext\cppext.h"
+class Win32CryptoServiceProvider {
+public:
+	HCRYPTPROV provider_rsa;
+	Win32CryptoServiceProvider() {
+		CryptAcquireContextW(&provider_rsa, 0, MS_STRONG_PROV, PROV_RSA_FULL, 0);
+	}
+	~Win32CryptoServiceProvider() {
+		CryptReleaseContext(provider_rsa, 0);
+	}
+};
 
-
-
+static Win32CryptoServiceProvider msp;
 void secure_random_bytes(void* output, size_t outlen)
 {
-  while(RAND_bytes((unsigned char*)output,outlen) == 0) {}
+	CryptGenRandom(msp.provider_rsa, outlen, (BYTE*)output);
 }
 
 
 void aes_encrypt(const void* key, void* data)
 {
-  AES_KEY mkey;
-  
-  AES_set_encrypt_key((unsigned char*)key,256,&mkey);
-  AES_encrypt((unsigned char*)data,(unsigned char*)data,&mkey);
+	struct {
+		BLOBHEADER header;
+		DWORD keyLen;
+		unsigned char key[32];
+	} WinKey;
+	WinKey.header.bType = PLAINTEXTKEYBLOB;
+	WinKey.header.bVersion = CUR_BLOB_VERSION;
+	WinKey.header.reserved = 0;
+	WinKey.header.aiKeyAlg = CALG_AES_256;
+	WinKey.keyLen = 32;
+	memcpy(WinKey.key, key, 32);
+
+	HCRYPTKEY winkey = 0;
+	CryptImportKey(msp.provider_rsa, (BYTE*)&WinKey, sizeof(WinKey), 0, 0, &winkey);
+	assert(winkey != 0);
+	DWORD dlen = 0;		
+	assert(CryptEncrypt(winkey, 0, 0, 0, (BYTE*)data,&dlen,16));
+
+	
   
 }
-static BIGNUM* ReadBig(System::BStream& str) {
+
+class BIGNUM {
+public:
+	const void* ptr;
+	size_t len;
+	BIGNUM(const void* ptr, size_t len) {
+		this->ptr = ptr;
+		this->len = len;
+	}
+};
+
+static BIGNUM ReadBig(System::BStream& str) {
   uint16_t len;
   str.Read(len);
-  return BN_bin2bn(str.Increment(len),len,0);
+  return BIGNUM(str.Increment(len),len);
 }
-static void WriteBig(System::BStream& str, const BIGNUM* number) {
-  uint16_t len = BN_num_bytes(number);
+static void WriteBig(System::BStream& str, const BIGNUM& number) {
+  uint16_t len = (uint16_t)number.len;
   str.Write(len);
-  BN_bn2bin(number,str.ptr);
+  memcpy(str.ptr, number.ptr, number.len);
   str.Increment(len);
 }
 
+class RSAEncryptionKey {
+public:
+	unsigned char* blob;
+	size_t privateOffset;
+	HCRYPTKEY keyHandle;
+	size_t len;
+	RSAEncryptionKey(unsigned char* blob,size_t blobLen, HCRYPTKEY handle, size_t privateOffset = 0) {
+		this->blob = new unsigned char[blobLen];
+		memcpy(this->blob,blob,blobLen);
+		this->keyHandle = handle;
+		this->privateOffset = privateOffset;
+		this->len = blobLen;
+	}
+	~RSAEncryptionKey() {
+		CryptDestroyKey(keyHandle);
+		delete[] blob;
+	}
+};
+
 void* RSA_Key(unsigned char* data, size_t len)
 {
-  System::BStream str(data,len);
-  try {
-  RSA* msa = RSA_new();
-  msa->n = ReadBig(str); //Public modulus
-  msa->e = ReadBig(str); //Public exponent
-  
-  if(str.length) {
-    msa->d = ReadBig(str); //Private exponent
-    msa->p = ReadBig(str); //Secret prime factor
-    msa->q = ReadBig(str); //Secret prime factor
-    msa->dmp1 = ReadBig(str); //d mod (p-1)
-    msa->dmq1 = ReadBig(str); //d mod (q-1)
-    msa->iqmp = ReadBig(str); //q^-1 mod p
-    
-  }
-  return msa;
-  }catch(const char* err) {
-    return 0;
-  }
+
+	struct {
+		PUBLICKEYSTRUC pubkeyheader;
+		RSAPUBKEY pubkey;
+	} MSRSAKEY;
+
+	System::BStream str(data, len);
+	size_t startAddr = (size_t)str.ptr;
+	try {
+		BIGNUM n = ReadBig(str); //Public modulus
+		BIGNUM e = ReadBig(str); //Public exponent
+		MSRSAKEY.pubkey.bitlen = n.len * 8;
+		MSRSAKEY.pubkey.magic = 0x31415352;
+
+		memcpy(&MSRSAKEY.pubkey.pubexp, e.ptr, sizeof(MSRSAKEY.pubkey.pubexp));
+
+		MSRSAKEY.pubkeyheader.bType = PUBLICKEYBLOB;
+		MSRSAKEY.pubkeyheader.bVersion = CUR_BLOB_VERSION;
+		MSRSAKEY.pubkeyheader.reserved = 0;
+		MSRSAKEY.pubkeyheader.aiKeyAlg = CALG_RSA_KEYX;
+		size_t endAddr = (size_t)str.ptr;
+		if (str.length) {
+			//We have private key
+			MSRSAKEY.pubkeyheader.bType = PRIVATEKEYBLOB;
+
+			BIGNUM d = ReadBig(str); //Private exponent (privateExponent)
+			BIGNUM p = ReadBig(str); //Secret prime factor (prime1)
+			BIGNUM q = ReadBig(str); //Secret prime factor (prime2)
+			BIGNUM dmp1 = ReadBig(str); //d mod (p-1) (exponent1)
+			BIGNUM dmq1 = ReadBig(str); //d mod (q-1) (exponent2)
+			BIGNUM iqmp = ReadBig(str); //q^-1 mod p (coefficient)
+			//TODO: Return private key
+			size_t blob_len = sizeof(MSRSAKEY) + n.len+p.len+q.len+dmp1.len+dmq1.len+iqmp.len;
+
+			unsigned char* privkey_blob = new unsigned char[blob_len];
+			unsigned char* ptr = privkey_blob;
+			memcpy(privkey_blob, &MSRSAKEY, sizeof(MSRSAKEY));
+			ptr += sizeof(MSRSAKEY);
+			memcpy(ptr, n.ptr, n.len);
+			ptr += n.len;
+			memcpy(ptr, p.ptr, p.len);
+			ptr += p.len;
+			memcpy(ptr, q.ptr, q.len);
+			ptr += q.len;
+			memcpy(ptr, dmp1.ptr, dmp1.len);
+			ptr += dmp1.len;
+			memcpy(ptr, dmq1.ptr, dmq1.len);
+			ptr += dmq1.len;
+			memcpy(ptr, iqmp.ptr, iqmp.len);
+			ptr += iqmp.len;
+			HCRYPTKEY osHandle = 0;
+			CryptImportKey(msp.provider_rsa, privkey_blob, blob_len, 0, 0, &osHandle);
+			delete[] privkey_blob;
+			if (osHandle == 0) {
+				return 0;
+			}
+			return new RSAEncryptionKey(privkey_blob, blob_len, osHandle,endAddr-startAddr);
+		}
+		else {
+			//TODO: Return public key
+			size_t blob_len = sizeof(MSRSAKEY) + n.len;
+		    unsigned char* pubkey_blob = new unsigned char[blob_len];
+			unsigned char* ptr = pubkey_blob;
+			memcpy(pubkey_blob, &MSRSAKEY, sizeof(MSRSAKEY));
+			ptr += sizeof(MSRSAKEY);
+			memcpy(ptr, n.ptr, n.len);
+			HCRYPTKEY osHandle = 0;
+			CryptImportKey(msp.provider_rsa, pubkey_blob, blob_len, 0, 0, &osHandle);
+			delete[] pubkey_blob;
+			if (osHandle == 0) {
+				return 0;
+			}
+			return new RSAEncryptionKey(pubkey_blob, blob_len, osHandle);
+			
+		}
+	}
+	catch (const char* err) {
+		return 0;
+	}
 }
 
-void* RSA_Export(void* key, bool includePrivate)
+void* RSA_Export(void* _key, bool includePrivate)
 {
-  RSA* msa = (RSA*)key;
-  if(includePrivate) {
-    size_t len = 2+BN_num_bytes(msa->n)+2+BN_num_bytes(msa->e)+2+BN_num_bytes(msa->d)+2+BN_num_bytes(msa->p)+2+BN_num_bytes(msa->q)+2+BN_num_bytes(msa->dmp1)+2+BN_num_bytes(msa->dmq1)+2+BN_num_bytes(msa->iqmp);
-    void* retval = GlobalGrid::Buffer_Create(len);
-    unsigned char* mander;
-    GlobalGrid::Buffer_Get(retval,(void**)&mander,&len);
-    System::BStream str(mander,len);
-    WriteBig(str,msa->n);
-    WriteBig(str,msa->e);
-    WriteBig(str,msa->d);
-    WriteBig(str,msa->p);
-    WriteBig(str,msa->q);
-    WriteBig(str,msa->dmp1);
-    WriteBig(str,msa->dmq1);
-    WriteBig(str,msa->iqmp);
-    return retval;
-  }else {
-    size_t len = 2+BN_num_bytes(msa->n)+2+BN_num_bytes(msa->e);
-    void* retval = GlobalGrid::Buffer_Create(len);
-    unsigned char* mander;
-    GlobalGrid::Buffer_Get(retval,(void**)&mander,&len);
-    System::BStream str(mander,len);
-    WriteBig(str,msa->n);
-    WriteBig(str,msa->e);
-    return retval;
-  }
+	RSAEncryptionKey* key = (RSAEncryptionKey*)_key;
+
+	if (includePrivate && key->privateOffset) {
+		void* retval = GlobalGrid::Buffer_Create(key->len);
+		unsigned char* data;
+		size_t len;
+		GlobalGrid::Buffer_Get(retval, &data, &len);
+		memcpy(data, key->blob, len);
+		return retval;
+	}
+	else {
+		void* retval = GlobalGrid::Buffer_Create(key->len - key->privateOffset);
+		unsigned char* data;
+		size_t len;
+		GlobalGrid::Buffer_Get(retval, &data, &len);
+		memcpy(data, key->blob, len);
+		return retval;
+	}
 }
 
+static void SHA512(const unsigned char* data, size_t len, unsigned char* output) {
+	HCRYPTHASH hash = 0;
+	CryptCreateHash(msp.provider_rsa, CALG_SHA_512, 0, 0, &hash);
+	CryptHashData(hash, data, len, 0);
+	DWORD hashlen;
+	CryptGetHashParam(hash, HP_HASHVAL, output, &hashlen, 0);
+	CryptDestroyHash(hash);
 
+}
 void hash_generate(const unsigned char* data, size_t len, char* output)
 {
   //Poor unsigned Charmander....
@@ -136,6 +248,23 @@ void* RSA_GenKey(size_t bits)
 {
  // BIGNUM* e = BN_new();
   //  BN_set_word(e, 65537);
+	uint32_t keySize = (uint32_t)bits;
+	HCRYPTKEY key = 0;
+	CryptGenKey(msp.provider_rsa, CALG_RSA_KEYX, CRYPT_EXPORTABLE | (bits >> (32 - 16)),&key);
+	assert(key != 0);
+	DWORD dlen = 0;
+	CryptExportKey(key, 0, PRIVATEKEYBLOB, 0, 0, &dlen);
+	unsigned char* mander = new unsigned char[dlen];
+	CryptExportKey(key, 0, PRIVATEKEYBLOB, 0, mander, &dlen);
+	struct {
+		PUBLICKEYSTRUC pubkeyheader;
+		RSAPUBKEY pubkey;
+	} MSRSAKEY;
+	unsigned char* ptr = mander;
+	memcpy(&MSRSAKEY, ptr, sizeof(MSRSAKEY));
+	ptr += sizeof(MSRSAKEY);
+
+	delete[] mander;
   RSA* msa = RSA_generate_key(bits,65537,0,0);
   //BN_free(e);
   return msa;
@@ -186,8 +315,22 @@ void* RSA_Decrypt(void* _key, unsigned char* input, size_t inlen)
 
 void aes_decrypt(const void* key, void* data)
 {
-  
-  AES_KEY mkey;
-  AES_set_decrypt_key((unsigned char*)key,256,&mkey);
-  AES_decrypt((unsigned char*)data,(unsigned char*)data,&mkey);
+	struct {
+		BLOBHEADER header;
+		DWORD keyLen;
+		unsigned char key[32];
+	} WinKey;
+	WinKey.header.bType = PLAINTEXTKEYBLOB;
+	WinKey.header.bVersion = CUR_BLOB_VERSION;
+	WinKey.header.reserved = 0;
+	WinKey.header.aiKeyAlg = CALG_AES_256;
+	WinKey.keyLen = 32;
+	memcpy(WinKey.key, key, 32);
+
+	HCRYPTKEY winkey = 0;
+	CryptImportKey(msp.provider_rsa, (BYTE*)&WinKey, sizeof(WinKey), 0, 0, &winkey);
+	assert(winkey != 0);
+	DWORD dlen = 0;
+	assert(CryptDecrypt(winkey, 0, 0, 0, (BYTE*)data, &dlen, 16));
+
 }
