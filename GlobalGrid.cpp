@@ -665,7 +665,15 @@ public:
 	    if(sock && (sessions.find(sock) != sessions.end())) {
 	      
 	      SendPacketRouted(*sessions.find(sock),packet,sz,ttl-1,dest);
+	      
+	      //Send request for better route
+	      unsigned char nreq[1+16];
+	      nreq[0] = 0;
+	      memcpy(nreq+1,localGuid.value,16);
+	      SendPacketRouted(*sessions.find(sock),nreq,1+16,ttl-1,dest);
+	      
 	    }
+	    
 	    
 	  }else {
 	    printf("No route to host\n");
