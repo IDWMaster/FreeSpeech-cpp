@@ -112,6 +112,7 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
   printf("IP layer -- INIT LISTEN\n");
   *cb = System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){
     
+   printf("IP LAYER -- Packet received\n");
     std::shared_ptr<IPSocket> s = retval->socketMappings[results.receivedFrom].lock();
     if(!s) {
       s = std::make_shared<IPSocket>(retval->sock,retval->id.value);
@@ -120,7 +121,6 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
     }
    char ipaddr[INET6_ADDRSTRLEN];
    results.receivedFrom.ip.ToString(ipaddr);
-   printf("IP LAYER -- Packet received\n");
     GlobalGrid::GlobalGrid_NtfyPacket(connectionManager,s,(unsigned char*)buffy,results.outlen);
     printf("IP LAYER -- Waiting for packet\n");
     retval->sock->Receive(buffy,512*8,*cb);
