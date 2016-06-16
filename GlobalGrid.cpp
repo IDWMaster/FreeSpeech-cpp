@@ -634,6 +634,7 @@ public:
 	      if(s->verified) {
 		SendPacketRouted(*s,packet,sz,ttl-1,dest);
 		if(origin != localGuid && packet[0] == 0 && sz >= 1+16) {
+		  printf("Sending a better route.\n");
 		  //Send route back at them
 		  void* serialized_route = Serialize(sock);
 		  unsigned char* s_bytes;
