@@ -418,7 +418,6 @@ public:
 	printf("Got new session\n");
 	//We have a new Session.
 	Session route(socket,buffer,packetData);
-	routes[route.claimedThumbprint] = route.socket;
 	sessions.insert(route);
 	//Respond with ACK, which verifies our identity
 	//Send challenge to verify remote identity.
@@ -432,6 +431,7 @@ public:
 	if(remoteKey) {
 	  SendChallenge(remoteKey,route,socket);
 	  RSA_Free(remoteKey);
+	  
 	}else {
 	  //We don't have a remote key. Request it.
 	  unsigned char izard[16];
@@ -456,9 +456,12 @@ public:
 	printf("WARNING: Unaligned memory address\n");
       }
       
+    
       Session session = *sessions.find(socket);
       aes_decrypt_packet(session.key,(uint64_t*)packetData,packetLength);
+   routes[session.claimedThumbprint] = socket;
    
+    Insert_Peer(socket,session.claimedThumbprint);
       switch(*packetData) {
 	case 0:
 	  //Challenge request
@@ -504,6 +507,8 @@ public:
 	    session.verified = true;
 	    sessions.erase(session);
 	    sessions.insert(session);
+	    
+	routes[session.claimedThumbprint] = session.socket;
 	    printf("Identity verified.\n");
 	    Insert_Peer(session.socket,session.claimedThumbprint);
 	  }else {
@@ -731,7 +736,6 @@ public:
     RSA_thumbprint(remoteKey,(unsigned char*)thumbprint);
     session.claimedThumbprint[0] = thumbprint[0];
     session.claimedThumbprint[1] = thumbprint[1];
-    Insert_Peer(socket,thumbprint);
     secure_random_bytes(session.key,32);
     //Encrypt second part of message containing AES session key
     void* buffy = RSA_Encrypt(remoteKey,session.key,32);
@@ -742,7 +746,6 @@ public:
     memcpy(mander,localGuid.value,16);
     memcpy(mander+16,buffy_bytes,buffy_size);
     socket->Send(mander,16+buffy_size); //Send Charmander into battle.
-    routes[thumbprint] = socket;
     sessions.insert(session);
     delete[] mander;
     GlobalGrid::GGObject_Free(buffy);
