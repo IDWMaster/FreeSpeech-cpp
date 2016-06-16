@@ -652,7 +652,7 @@ public:
 		  RSA_Free(rkey);
 		  unsigned char* key_bytes;
 		  size_t key_length;
-		  GlobalGrid::Buffer_Get(rkey,&key_bytes,&key_length);
+		  GlobalGrid::Buffer_Get(key_buffer,&key_bytes,&key_length);
 		  GlobalGrid::Buffer_Get(serialized_route,&s_bytes,&s_len);
 		  unsigned char* response = new unsigned char[1+16+4+s_len+key_length];
 		  response[0] = 1;
