@@ -150,8 +150,12 @@ public:
 	ToHexString((unsigned char*)host.thumbprint.value,16,mander);
 	printf("Find auth %s\n",mander);
 	void* key = DB_FindAuthority(mander);
-	Handshake(dsocket,key);
-	RSA_Free(key);
+	if(key) {
+	  Handshake(dsocket,key);
+	  RSA_Free(key);
+	}else {
+	  printf("No key for %s found\n",mander);
+	}
       }
     }
     printf("Loaded %i VSockets from local cache.\n",(int)handcount);
@@ -598,19 +602,25 @@ public:
 		//Received possible better route
 		uint32_t socklen;
 		memcpy(&socklen,packetData+1+16,4);
-		if(socklen>packetLength-1-16-4) {
+		if(socklen>packetSize-1-16-4) {
 		  return;
 		}
 		std::shared_ptr<GlobalGrid::VSocket> betterRoute = Deserialize(packetData+1+16+4,socklen);
 		if(betterRoute) {
 		  
 		printf("Found better route\n");
-		  void* remoteKey = RSA_Key(packetData+1+16+4+socklen,packetLength-(1+16+4+socklen));
+		  void* remoteKey = RSA_Key(packetData+1+16+4+socklen,packetSize-(1+16+4+socklen));
 		  if(remoteKey) {
+		    char mander[(16*2)+1];
+		    RSA_thumbprint(remoteKey,mander);
+		    void* remotekey_db = DB_FindAuthority(mander);
+		    if(remotekey_db == 0) {
+		      DB_Insert_Certificate(mander,packetData+1+16+4+socklen,packetSize-(1+16+4+socklen),false);
+		    }
 		    Handshake(betterRoute,remoteKey);
 		    RSA_Free(remoteKey);
 		  }else {
-		    printf("Error: Key not found -- TODO send request for key here\n");
+		    printf("Error: Got bad key\n");
 		  }
 		}
 	      }

@@ -109,6 +109,7 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
 { std::shared_ptr<IPDriver> retval = std::make_shared<IPDriver>(ep);
   unsigned char* buffy = (unsigned char*)new uint64_t[512]; //4KB buffer aligned to 64-bits
   std::shared_ptr<System::Net::UDPCallback>* cb = new std::shared_ptr<System::Net::UDPCallback>();
+  printf("IP layer -- INIT LISTEN\n");
   *cb = System::Net::F2UDPCB([=](const System::Net::UDPCallback& results){
     
     std::shared_ptr<IPSocket> s = retval->socketMappings[results.receivedFrom].lock();
@@ -119,8 +120,9 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
     }
    char ipaddr[INET6_ADDRSTRLEN];
    results.receivedFrom.ip.ToString(ipaddr);
-   
+   printf("IP LAYER -- Packet received\n");
     GlobalGrid::GlobalGrid_NtfyPacket(connectionManager,s,(unsigned char*)buffy,results.outlen);
+    printf("IP LAYER -- Waiting for packet\n");
     retval->sock->Receive(buffy,512*8,*cb);
     //TODO: Delete cb AND buffy on destruction of protocol driver.
   });
