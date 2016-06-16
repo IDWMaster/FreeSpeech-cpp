@@ -157,7 +157,10 @@ public:
     printf("Loaded %i VSockets from local cache.\n",(int)handcount);
   }
   std::shared_ptr<GlobalGrid::VSocket> Deserialize(unsigned char* bytes, size_t len) {
-    return drivers[GlobalGrid::Guid(bytes)]->Deserialize(bytes+16,len-16);
+    if(drivers.find(GlobalGrid::Guid(bytes)) != drivers.end()) {
+      return drivers[GlobalGrid::Guid(bytes)]->Deserialize(bytes+16,len-16);
+    }
+    return 0;
     
   }
   void* Serialize(const std::shared_ptr<GlobalGrid::VSocket>& s) {
@@ -565,6 +568,13 @@ public:
 	case 4:
 	{
 	  //Route packet
+	  if(packetLength<1+1+16+4) {
+	    return;
+	  }
+	  if(!session.verified) {
+	    //Unverified connection. Drop packet.
+	    return;
+	  }
 	  packetData++;
 	  unsigned char ttl = *packetData;
 	  packetData++;
@@ -573,15 +583,36 @@ public:
 	  GlobalGrid::Guid dest;
 	  memcpy(dest.value,packetData,16);
 	  packetData+=16;
-	  GlobalGrid::Guid localThumbprint;
-	  RSA_thumbprint(privkey,(unsigned char*)localThumbprint.value);
 	  uint32_t packetSize;
 	  memcpy(&packetSize,packetData,4);
-	  packetData+=16;
-	  if(dest == localGuid) {
-	    printf("TODO: Packet destined for ourselves\n");
+	  packetData+=4;
+	  if(packetLength<1+1+16+4+packetSize) {
 	    return;
 	  }
+	  if(dest == localGuid) {
+	    printf("TODO: Packet destined for ourselves\n");
+	    switch(*packetData) {
+	      case 1:
+	      {
+		printf("Possible candidate route\n");
+		//Received possible better route
+		std::shared_ptr<GlobalGrid::VSocket> betterRoute = Deserialize(packetData+1,packetSize);
+		if(betterRoute) {
+		  char izard[(16*2)+1];
+		  
+		printf("Found better route to %s\n",izard);
+		  ToHexString((unsigned char*)session.claimedThumbprint,16,izard);
+		  void* remoteKey = DB_FindAuthority(izard);
+		  Handshake(betterRoute,remoteKey);
+		  RSA_Free(remoteKey);
+		  
+		}
+	      }
+		break;
+	    }
+	    return;
+	  }
+	  
 	  SendPacket(packetData,packetSize,ttl,dest,session.claimedThumbprint);
 	  
 	}
@@ -602,6 +633,20 @@ public:
 	      auto s = sessions.find(sock);
 	      if(s->verified) {
 		SendPacketRouted(*s,packet,sz,ttl-1,dest);
+		if(origin != localGuid && packet[0] == 0 && sz >= 1+16) {
+		  //Send route back at them
+		  void* serialized_route = Serialize(sock);
+		  unsigned char* s_bytes;
+		  size_t s_len;
+		  GlobalGrid::Buffer_Get(serialized_route,&s_bytes,&s_len);
+		  unsigned char* response = new unsigned char[1+16+s_len];
+		  response[0] = 1;
+		  memcpy(response+1,dest.value,16);
+		  memcpy(response+1+16,s_bytes,s_len);
+		  SendPacket(response,1+16+s_len,30,packet+1,localGuid);
+		  delete[] response;
+		  GlobalGrid::GGObject_Free(serialized_route);
+		}
 		return;
 	      }
 	    }
