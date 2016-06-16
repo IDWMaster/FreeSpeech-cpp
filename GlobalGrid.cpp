@@ -596,16 +596,22 @@ public:
 	      {
 		printf("Possible candidate route\n");
 		//Received possible better route
-		std::shared_ptr<GlobalGrid::VSocket> betterRoute = Deserialize(packetData+1+16,packetSize);
+		uint32_t socklen;
+		memcpy(&socklen,packetData+1+16,4);
+		if(socklen>packetLength-1-16-4) {
+		  return;
+		}
+		std::shared_ptr<GlobalGrid::VSocket> betterRoute = Deserialize(packetData+1+16+4,socklen);
 		if(betterRoute) {
-		  char izard[(16*2)+1];
 		  
-		  ToHexString(packetData+1,16,izard);
-		printf("Found better route to %s\n",izard);
-		  void* remoteKey = DB_FindAuthority(izard);
-		  Handshake(betterRoute,remoteKey);
-		  RSA_Free(remoteKey);
-		  
+		printf("Found better route\n");
+		  void* remoteKey = RSA_Key(packetData+1+16+4+socklen,packetLength-(1+16+4+socklen));
+		  if(remoteKey) {
+		    Handshake(betterRoute,remoteKey);
+		    RSA_Free(remoteKey);
+		  }else {
+		    printf("Error: Key not found -- TODO send request for key here\n");
+		  }
 		}
 	      }
 		break;
@@ -639,14 +645,26 @@ public:
 		  void* serialized_route = Serialize(sock);
 		  unsigned char* s_bytes;
 		  size_t s_len;
+		  char mander[(16*2)+1];
+		  ToHexString((unsigned char*)dest.value,16,mander);
+		  void* rkey = DB_FindAuthority(mander);
+		  void* key_buffer = RSA_Export(rkey,false);
+		  RSA_Free(rkey);
+		  unsigned char* key_bytes;
+		  size_t key_length;
+		  GlobalGrid::Buffer_Get(rkey,&key_bytes,&key_length);
 		  GlobalGrid::Buffer_Get(serialized_route,&s_bytes,&s_len);
-		  unsigned char* response = new unsigned char[1+16+s_len];
+		  unsigned char* response = new unsigned char[1+16+4+s_len+key_length];
 		  response[0] = 1;
 		  memcpy(response+1,dest.value,16);
-		  memcpy(response+1+16,s_bytes,s_len);
-		  SendPacket(response,1+16+s_len,30,packet+1,localGuid);
+		  uint32_t s_len_i = (uint32_t)s_len;
+		  memcpy(response+1+16,&s_len_i,4);
+		  memcpy(response+1+16+4,s_bytes,s_len);
+		  memcpy(response+1+16+4+s_len,key_bytes,key_length);
+		  SendPacket(response,1+16+4+s_len+key_length,30,packet+1,localGuid);
 		  delete[] response;
 		  GlobalGrid::GGObject_Free(serialized_route);
+		  GlobalGrid::GGObject_Free(key_buffer);
 		}
 		return;
 	      }
