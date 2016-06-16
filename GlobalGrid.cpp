@@ -596,12 +596,12 @@ public:
 	      {
 		printf("Possible candidate route\n");
 		//Received possible better route
-		std::shared_ptr<GlobalGrid::VSocket> betterRoute = Deserialize(packetData+1,packetSize);
+		std::shared_ptr<GlobalGrid::VSocket> betterRoute = Deserialize(packetData+1+16,packetSize);
 		if(betterRoute) {
 		  char izard[(16*2)+1];
 		  
+		  ToHexString(packetData+1,16,izard);
 		printf("Found better route to %s\n",izard);
-		  ToHexString((unsigned char*)session.claimedThumbprint,16,izard);
 		  void* remoteKey = DB_FindAuthority(izard);
 		  Handshake(betterRoute,remoteKey);
 		  RSA_Free(remoteKey);
