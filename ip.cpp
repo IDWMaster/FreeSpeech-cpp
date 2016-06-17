@@ -22,6 +22,7 @@
 #include "cppext/cppext.h"
 #include <map>
 #include <netinet/in.h>
+#include <libgupnp/gupnp.h>
 
 class IPSocket:public GlobalGrid::VSocket {
 public:
@@ -59,9 +60,14 @@ public:
   std::shared_ptr<System::Net::UDPSocket> sock;
   std::map<System::Net::IPEndpoint,std::weak_ptr<IPSocket>> socketMappings;
   IPDriver(const System::Net::IPEndpoint& ep) {
+    
+    
+    
     FromHexString("452566E212031284966AB354F7F6CA04",(unsigned char*)id.value,2*16);
     sock = System::Net::CreateUDPSocket(ep); //Put a sock in itself.
+    //TODO: Map UPnP port
     
+  
   }
   
   std::shared_ptr< GlobalGrid::VSocket > Deserialize(unsigned char* buffer, size_t bufflen) {
@@ -98,7 +104,10 @@ std::shared_ptr< GlobalGrid::VSocket > MakeSocket(const System::Net::IPEndpoint&
     memcpy(mander+16,&ep.port,2);
     return buffy;
   }
- 
+
+~IPDriver() {
+  
+}
 };
 
 
