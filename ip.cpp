@@ -23,7 +23,9 @@
 #include <map>
 #include <netinet/in.h>
 #include <libgupnp/gupnp.h>
-
+#include <thread>
+#include <gtk/gtk.h>
+#include <libgupnp-igd/gupnp-simple-igd.h>
 class IPSocket:public GlobalGrid::VSocket {
 public:
   System::Net::IPEndpoint ep;
@@ -55,6 +57,47 @@ void GetProtocolID(void* outbuff) {
   }
 };
 
+static void context_found(GUPnPContextManager* mngr, GUPnPContext* context, gpointer userData);
+class UPNPRouter {
+public:
+  const gchar* ipaddr;
+  GUPnPSimpleIgd* igdContext;
+  UPNPRouter() {
+      //TODO: Map UPnP port
+    std::thread m([=](){
+      GUPnPContextManager* mngr = gupnp_context_manager_create(0);
+      g_signal_connect(mngr,"context-available",G_CALLBACK(context_found),0);
+      igdContext = gupnp_simple_igd_new();
+      gtk_main();
+    });
+    m.detach();
+  }
+};
+const char* routerip = 0;
+static UPNPRouter gateway;
+static void device_proxy_found(GUPnPControlPoint* cp, GUPnPServiceProxy* proxy, GUPnPContext* context) {
+  GUPnPDeviceInfo* info = GUPNP_DEVICE_INFO(proxy);
+  
+  if(g_strcmp0(gupnp_device_info_get_device_type(info),"urn:schemas-upnp-org:device:InternetGatewayDevice:1") == 0) {
+    const char* devname = gupnp_device_info_get_friendly_name(info);
+    const char* serialno = gupnp_device_info_get_serial_number(info);
+    devname = devname ? devname : "unknown";
+    serialno = serialno ? serialno : "unknown";
+    routerip = gupnp_context_get_host_ip(context);
+    printf("Found device named %s with serial number %s on local interface %s\n",devname,serialno,gupnp_context_get_host_ip(context));
+  }
+}
+static void context_found(GUPnPContextManager* mngr, GUPnPContext* context, gpointer userData) {
+  const gchar* ipaddr = 0;
+  ipaddr = gupnp_context_get_host_ip(context);
+  printf("Found physical router for address %s\n",ipaddr);
+  GUPnPControlPoint* controlPoint = gupnp_control_point_new(context,"upnp:rootdevice");
+  g_signal_connect(controlPoint,"device-proxy-available",G_CALLBACK(device_proxy_found),context);
+  gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(controlPoint),TRUE);
+  g_object_unref(context);
+}
+
+
 class IPDriver:public IPProto::IIPDriver {
 public:
   std::shared_ptr<System::Net::UDPSocket> sock;
@@ -65,8 +108,16 @@ public:
     
     FromHexString("452566E212031284966AB354F7F6CA04",(unsigned char*)id.value,2*16);
     sock = System::Net::CreateUDPSocket(ep); //Put a sock in itself.
-    //TODO: Map UPnP port
-    
+    System::Net::IPEndpoint bound;
+    sock->GetLocalEndpoint(bound);
+    for(size_t i = 0;i<3;i++) {
+      if(routerip) {
+	gupnp_simple_igd_add_port(gateway.igdContext,"UDP",0,routerip,bound.port,60,"GlobalGrid rules!");
+	printf("GlobalGrid protocol registered on physical router\n");
+	break;
+      }
+      sleep(1);
+    }
   
   }
   

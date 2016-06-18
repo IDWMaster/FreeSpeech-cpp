@@ -5,7 +5,7 @@
 
 ## Dependencies
 
-Use the following command to install dependencies on Ubuntu: sudo apt-get install libgupnp-1.0-dev libssl-dev cmake g++
+Use the following command to install dependencies on Ubuntu: sudo apt-get install libgupnp-1.0-dev libgupnp-igd-1.0-dev libssl-dev cmake g++
 
 
 ## Building
