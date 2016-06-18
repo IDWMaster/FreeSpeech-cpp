@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 2.0)
 add_executable(FreeSpeech cppext/cppext.cpp main.cpp database.cpp sqlite3.c crypto.cpp GlobalGrid.cpp ip.cpp)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(UPNP REQUIRED gupnp-1.0)
