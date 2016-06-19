@@ -230,7 +230,7 @@ public:
 	return;
       }
       
-      printf("TODO: Replace VSocket in file.");
+      printf("TODO: Replace VSocket in file.\n");
       knownHosts_index.clear();
       //Erase entry at mapped_offset and insert at end
       uint32_t entry_vsocket_len;
@@ -433,6 +433,7 @@ public:
 	  RSA_Free(remoteKey);
 	  
 	}else {
+	  printf("Key not found for %s. Requesting.\n",hexprint);
 	  //We don't have a remote key. Request it.
 	  unsigned char izard[16];
 	  memset(izard,0,16);
