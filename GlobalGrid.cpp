@@ -653,7 +653,6 @@ public:
 	    if(sock && (sessions.find(sock) != sessions.end())) {
 	      auto s = sessions.find(sock);
 	      if(s->verified) {
-		SendPacketRouted(*s,packet,sz,ttl-1,dest);
 		if(origin != localGuid && packet[0] == 0 && sz >= 1+16) {
 		  printf("Sending a better route.\n");
 		  //Send route back at them
@@ -680,6 +679,8 @@ public:
 		  delete[] response;
 		  GlobalGrid::GGObject_Free(serialized_route);
 		  GlobalGrid::GGObject_Free(key_buffer);
+		}else {
+		  SendPacketRouted(*s,packet,sz,ttl-1,dest);
 		}
 		return;
 	      }
