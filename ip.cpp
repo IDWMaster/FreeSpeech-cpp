@@ -175,6 +175,10 @@ std::shared_ptr< IPProto::IIPDriver > IPProto::CreateDriver(void* connectionMana
    printf("IP LAYER -- Packet received\n");
     std::shared_ptr<IPSocket> s = retval->socketMappings[results.receivedFrom].lock();
     if(!s) {
+      char mander[256];
+      memset(mander,0,256);
+      results.receivedFrom.ip.ToString(mander);
+      printf("IP LAYER -- New endpoint found at %s:%i\n",mander,(int)results.receivedFrom.port);
       s = std::make_shared<IPSocket>(retval->sock,retval->id.value);
       s->ep = results.receivedFrom;
       retval->socketMappings[results.receivedFrom] = s;
