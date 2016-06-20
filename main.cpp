@@ -114,6 +114,8 @@ printf("Your private key thumbprint is %s\n",thumbprint);
 void* router = GlobalGrid::GlobalGrid_InitRouter(privkey);
 
 
+
+
 printf("Registering IP protocol driver with system....\n");
 System::Net::IPEndpoint routerBinding;
 routerBinding.ip = "::";
@@ -179,6 +181,64 @@ std::thread m([&](){
 });
 
 m.detach();
+
+
+//Local peer discovery
+System::Net::IPEndpoint ep;
+ep.ip = "::";
+ep.port = 7718;
+std::shared_ptr<System::Net::UDPSocket> multicastAnnouncer = System::Net::CreateUDPSocket(ep);
+void* pubkey_buffer = RSA_Export(privkey,false);
+unsigned char* pubkey_bytes;
+size_t pubkey_size;
+GlobalGrid::Buffer_Get(&pubkey_bytes,&pubkey_size);
+
+unsigned char mander[4096];
+std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const System::Net::UDPCallback& results){
+  switch(mander[0]) {
+    case 0:
+    {
+      //Ident request
+      unsigned char* response = new unsigned char[1+pubkey_size];
+      response[0] = 1;
+      memcpy(response+1,pubkey_bytes,pubkey_size);
+      multicastAnnouncer->Send(mander,pubkey_size,results.receivedFrom);
+    }
+      break;
+    case 1:
+    {
+      if(results.outlen<2) {
+	goto velociraptor; //Back pain?
+      }
+      //Found peer. Try to shake hands with it, and import the key (if not already in database).
+      char acter[(16*2)+1]; //Remember to stay in character
+      void* key = RSA_Key(mander+1,results.outlen-1);
+      if(key == 0) {
+	goto velociraptor;
+      }
+      RSA_thumbprint(key,acter); //We have to be a good actor
+      
+      void* foundkey = DB_FindAuthority(acter);
+      if(foundkey) {
+	RSA_Free(foundkey);
+      }else {
+        void* key_bytes = RSA_Export(key,false);
+	unsigned char* buffy_bytes; //Be careful. Buffy bytes!
+	size_t buffy_size;
+	GlobalGrid::Buffer_Get(&buffy_bytes,&buffy_size);
+	DB_Insert_Certificate(acter,buffy_bytes,buffy_size,false);
+	GlobalGrid::GGObject_Free(key_bytes);
+      }
+      //Shake hands with remote peer.
+      GlobalGrid::GlobalGrid_InitiateHandshake(router,deriver->MakeSocket(results.receivedFrom),key);
+      RSA_Free(key);
+    }
+      break;
+  }
+  velociraptor:
+  multicastAnnouncer->Receive(mander,4096,cb);
+});
+multicastAnnouncer->Receive(mander,4096,cb);
 
 
 System::Enter();
