@@ -191,18 +191,18 @@ std::shared_ptr<System::Net::UDPSocket> multicastAnnouncer = System::Net::Create
 void* pubkey_buffer = RSA_Export(privkey,false);
 unsigned char* pubkey_bytes;
 size_t pubkey_size;
-GlobalGrid::Buffer_Get(&pubkey_bytes,&pubkey_size);
+GlobalGrid::Buffer_Get(pubkey_buffer,&pubkey_bytes,&pubkey_size);
 
-unsigned char mander[4096];
+unsigned char recvBuffer[4096];
 std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const System::Net::UDPCallback& results){
-  switch(mander[0]) {
+  switch(recvBuffer[0]) {
     case 0:
     {
       //Ident request
       unsigned char* response = new unsigned char[1+pubkey_size];
       response[0] = 1;
       memcpy(response+1,pubkey_bytes,pubkey_size);
-      multicastAnnouncer->Send(mander,pubkey_size,results.receivedFrom);
+      multicastAnnouncer->Send(recvBuffer,pubkey_size,results.receivedFrom);
     }
       break;
     case 1:
@@ -212,7 +212,7 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const Sy
       }
       //Found peer. Try to shake hands with it, and import the key (if not already in database).
       char acter[(16*2)+1]; //Remember to stay in character
-      void* key = RSA_Key(mander+1,results.outlen-1);
+      void* key = RSA_Key(recvBuffer+1,results.outlen-1);
       if(key == 0) {
 	goto velociraptor;
       }
@@ -225,7 +225,7 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const Sy
         void* key_bytes = RSA_Export(key,false);
 	unsigned char* buffy_bytes; //Be careful. Buffy bytes!
 	size_t buffy_size;
-	GlobalGrid::Buffer_Get(&buffy_bytes,&buffy_size);
+	GlobalGrid::Buffer_Get(key_bytes,&buffy_bytes,&buffy_size);
 	DB_Insert_Certificate(acter,buffy_bytes,buffy_size,false);
 	GlobalGrid::GGObject_Free(key_bytes);
       }
@@ -236,9 +236,9 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const Sy
       break;
   }
   velociraptor:
-  multicastAnnouncer->Receive(mander,4096,cb);
+  multicastAnnouncer->Receive(recvBuffer,4096,cb);
 });
-multicastAnnouncer->Receive(mander,4096,cb);
+multicastAnnouncer->Receive(recvBuffer,4096,cb);
 
 
 System::Enter();
