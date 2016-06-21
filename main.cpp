@@ -196,6 +196,7 @@ GlobalGrid::Buffer_Get(pubkey_buffer,&pubkey_bytes,&pubkey_size);
 
 unsigned char recvBuffer[4096];
 std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const System::Net::UDPCallback& results){
+  printf("Received multicast packet\n");
   switch(recvBuffer[0]) {
     case 0:
     {
