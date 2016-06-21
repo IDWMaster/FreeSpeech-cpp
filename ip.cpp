@@ -120,7 +120,9 @@ public:
     }
   
   }
-  
+  void GetEP(System::Net::IPEndpoint& ep) {
+    sock->GetLocalEndpoint(ep);
+  }
   std::shared_ptr< GlobalGrid::VSocket > Deserialize(unsigned char* buffer, size_t bufflen) {
     if(bufflen>=16+2) {
       std::shared_ptr<IPSocket> retval = std::make_shared<IPSocket>(sock,id.value);

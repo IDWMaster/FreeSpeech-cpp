@@ -26,6 +26,7 @@ class IIPDriver:public GlobalGrid::ProtocolDriver {
 public:
   virtual ~IIPDriver(){};
   virtual std::shared_ptr<GlobalGrid::VSocket> MakeSocket(const System::Net::IPEndpoint& ep) = 0;
+  virtual void GetEP(System::Net::IPEndpoint& ep) = 0;
 };
 std::shared_ptr<IPProto::IIPDriver> CreateDriver(void* connectionManager, const System::Net::IPEndpoint& ep); 
 

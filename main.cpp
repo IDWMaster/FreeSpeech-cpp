@@ -183,6 +183,9 @@ std::thread m([&](){
 m.detach();
 
 
+System::Net::IPEndpoint localEP;
+deriver->GetEP(localEP);
+
 //Local peer discovery
 System::Net::IPEndpoint ep;
 ep.ip = "::";
@@ -204,23 +207,26 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const Sy
     {
       printf("Ident request\n");
       //Ident request
-      unsigned char* response = new unsigned char[1+pubkey_size];
+      unsigned char* response = new unsigned char[1+2+pubkey_size];
       response[0] = 1;
-      memcpy(response+1,pubkey_bytes,pubkey_size);
-      multicastAnnouncer->Send(response,pubkey_size+1,results.receivedFrom);
+      memcpy(response+1,&localEP.port,2);
+      memcpy(response+1+2,pubkey_bytes,pubkey_size);
+      multicastAnnouncer->Send(response,1+2+pubkey_size,results.receivedFrom);
     }
       break;
     case 1:
     {
-      if(memcmp(recvBuffer+1,pubkey_bytes,pubkey_size) == 0) {
+      if(memcmp(recvBuffer+1+2,pubkey_bytes,pubkey_size) == 0) {
 	goto velociraptor;
       }
-      if(results.outlen<2) {
+      if(results.outlen<1+2+1) {
 	goto velociraptor; //Back pain?
       }
+      uint16_t portno;
+      memcpy(&portno,recvBuffer+1,2);
       //Found peer. Try to shake hands with it, and import the key (if not already in database).
       char acter[(16*2)+1]; //Remember to stay in character
-      void* key = RSA_Key(recvBuffer+1,results.outlen-1);
+      void* key = RSA_Key(recvBuffer+1+2,results.outlen-1-2);
       if(key == 0) {
 	printf("Error. Invalid key.\n");
 	goto velociraptor;
@@ -238,6 +244,7 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const Sy
 	DB_Insert_Certificate(acter,buffy_bytes,buffy_size,false);
 	GlobalGrid::GGObject_Free(key_bytes);
       }
+      printf("Init handshake with peer\n");
       //Shake hands with remote peer.
       GlobalGrid::GlobalGrid_InitiateHandshake(router,deriver->MakeSocket(results.receivedFrom),key);
       RSA_Free(key);
