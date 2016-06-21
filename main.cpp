@@ -231,8 +231,14 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](System::
 	printf("Error. Invalid key.\n");
 	goto velociraptor;
       }
-      RSA_thumbprint(key,acter); //We have to be a good actor
       
+      RSA_thumbprint(key,acter); //We have to be a good actor
+      GlobalGrid::Guid destGuid;
+      RSA_thumbprint(key,(unsigned char*)destGuid.value);
+      if(GlobalGrid::GlobalGrid_HasRoute(router,destGuid)) {
+	RSA_Free(key);
+	goto velociraptor;
+      }
       void* foundkey = DB_FindAuthority(acter);
       if(foundkey) {
 	RSA_Free(foundkey);
@@ -244,9 +250,9 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](System::
 	DB_Insert_Certificate(acter,buffy_bytes,buffy_size,false);
 	GlobalGrid::GGObject_Free(key_bytes);
       }
-      printf("Init handshake with peer\n");
       //Shake hands with remote peer.
       results.receivedFrom.port = portno;
+      
       GlobalGrid::GlobalGrid_InitiateHandshake(router,deriver->MakeSocket(results.receivedFrom),key);
       RSA_Free(key);
     }
@@ -261,7 +267,11 @@ multicastAnnouncer->Receive(recvBuffer,4096,cb);
 System::Net::IPEndpoint dest;
 dest.ip = "ff6e::9877:2";
 dest.port = 7718;
+
 multicastAnnouncer->Send(announcement,1,dest);
+System::SetInterval([&](){
+  multicastAnnouncer->Send(announcement,1,dest);
+},10000);
 
 System::Enter();
 

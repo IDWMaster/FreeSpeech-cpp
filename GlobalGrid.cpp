@@ -755,6 +755,12 @@ public:
     
   }
 };
+bool GlobalGrid::GlobalGrid_HasRoute(void* connectionManager,const GlobalGrid::Guid& dest)
+{
+  
+  GGRouter* conman = (GGRouter*)connectionManager;
+  return conman->routes.find(dest) != conman->routes.end();
+}
 
 void GlobalGrid::GlobalGrid_SendPacket(void* connectionManager, const GlobalGrid::Guid& dest, unsigned char* data, size_t sz)
 {
