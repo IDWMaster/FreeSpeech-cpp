@@ -207,7 +207,7 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const Sy
       unsigned char* response = new unsigned char[1+pubkey_size];
       response[0] = 1;
       memcpy(response+1,pubkey_bytes,pubkey_size);
-      multicastAnnouncer->Send(response,pubkey_size,results.receivedFrom);
+      multicastAnnouncer->Send(response,pubkey_size+1,results.receivedFrom);
     }
       break;
     case 1:
