@@ -199,7 +199,7 @@ GlobalGrid::Buffer_Get(pubkey_buffer,&pubkey_bytes,&pubkey_size);
 
 unsigned char _recvBuffer[4096];
 unsigned char* recvBuffer = _recvBuffer;
-std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const System::Net::UDPCallback& results){
+std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](System::Net::UDPCallback& results){
   printf("Received multicast packet len = %i\n",(int)results.outlen);
   
   switch(recvBuffer[0]) {
@@ -246,6 +246,7 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const Sy
       }
       printf("Init handshake with peer\n");
       //Shake hands with remote peer.
+      results.receivedFrom.port = portno;
       GlobalGrid::GlobalGrid_InitiateHandshake(router,deriver->MakeSocket(results.receivedFrom),key);
       RSA_Free(key);
     }
