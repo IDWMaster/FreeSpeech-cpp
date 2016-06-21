@@ -194,7 +194,8 @@ unsigned char* pubkey_bytes;
 size_t pubkey_size;
 GlobalGrid::Buffer_Get(pubkey_buffer,&pubkey_bytes,&pubkey_size);
 
-unsigned char recvBuffer[4096];
+unsigned char _recvBuffer[4096];
+unsigned char* recvBuffer = _recvBuffer;
 std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const System::Net::UDPCallback& results){
   printf("Received multicast packet len = %i\n",(int)results.outlen);
   
@@ -221,6 +222,7 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const Sy
       char acter[(16*2)+1]; //Remember to stay in character
       void* key = RSA_Key(recvBuffer+1,results.outlen-1);
       if(key == 0) {
+	printf("Error. Invalid key.\n");
 	goto velociraptor;
       }
       RSA_thumbprint(key,acter); //We have to be a good actor
