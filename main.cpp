@@ -188,6 +188,7 @@ System::Net::IPEndpoint ep;
 ep.ip = "::";
 ep.port = 7718;
 std::shared_ptr<System::Net::UDPSocket> multicastAnnouncer = System::Net::CreateUDPSocket(ep);
+multicastAnnouncer->JoinMulticastGroup("ff6e::9877:2");
 void* pubkey_buffer = RSA_Export(privkey,false);
 unsigned char* pubkey_bytes;
 size_t pubkey_size;
@@ -238,8 +239,13 @@ std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const Sy
   velociraptor:
   multicastAnnouncer->Receive(recvBuffer,4096,cb);
 });
+unsigned char announcement[1];
+announcement[0] = 0;
 multicastAnnouncer->Receive(recvBuffer,4096,cb);
-
+System::Net::IPEndpoint dest;
+dest.ip = "ff6e::9877:2";
+dest.port = 7718;
+multicastAnnouncer->Send(announcement,1,dest);
 
 System::Enter();
 
