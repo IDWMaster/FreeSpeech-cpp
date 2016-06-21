@@ -196,19 +196,24 @@ GlobalGrid::Buffer_Get(pubkey_buffer,&pubkey_bytes,&pubkey_size);
 
 unsigned char recvBuffer[4096];
 std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](const System::Net::UDPCallback& results){
-  printf("Received multicast packet\n");
+  printf("Received multicast packet len = %i\n",(int)results.outlen);
+  
   switch(recvBuffer[0]) {
     case 0:
     {
+      printf("Ident request\n");
       //Ident request
       unsigned char* response = new unsigned char[1+pubkey_size];
       response[0] = 1;
       memcpy(response+1,pubkey_bytes,pubkey_size);
-      multicastAnnouncer->Send(recvBuffer,pubkey_size,results.receivedFrom);
+      multicastAnnouncer->Send(response,pubkey_size,results.receivedFrom);
     }
       break;
     case 1:
     {
+      if(memcmp(recvBuffer+1,pubkey_bytes,pubkey_size) == 0) {
+	goto velociraptor;
+      }
       if(results.outlen<2) {
 	goto velociraptor; //Back pain?
       }
