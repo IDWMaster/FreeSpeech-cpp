@@ -645,6 +645,9 @@ public:
     }
   }
   void SendPacket(unsigned char* packet, size_t sz, unsigned char ttl, const GlobalGrid::Guid& dest, const GlobalGrid::Guid& origin) {
+    if(sz == 0) {
+      return;
+    }
     if(sessions.size() == 0) {
       //No active connections. Perform scan.
       balance();
@@ -654,7 +657,7 @@ public:
 	    if(sock && (sessions.find(sock) != sessions.end())) {
 	      auto s = sessions.find(sock);
 	      if(s->verified) {
-		if(origin != localGuid && packet[0] == 0 && sz >= 1+16) {
+		if(origin != localGuid && packet[sz-1] == 0 && sz >= 1+16) {
 		  printf("Sending a better route.\n");
 		  //Send route back at them
 		  void* serialized_route = Serialize(sock);
@@ -704,7 +707,7 @@ public:
 	      
 	      //Send request for better route
 	      unsigned char nreq[1+16];
-	      nreq[0] = 0;
+	      nreq[sz-1] = 0;
 	      memcpy(nreq+1,localGuid.value,16);
 	      SendPacketRouted(*sessions.find(sock),nreq,1+16,ttl-1,dest);
 	      
