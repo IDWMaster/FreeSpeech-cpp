@@ -699,7 +699,7 @@ public:
 	    
 	    std::shared_ptr<GlobalGrid::VSocket> sock = routes[candidateRoute].lock();
 	    if(!sock) {
-	      printf("No route to host\n");
+	      printf("No route to host (%i active sessions)\n",(int)sessions.size());
 	    }
 	    if(sock && (sessions.find(sock) != sessions.end())) {
 	      
@@ -715,7 +715,7 @@ public:
 	    
 	    
 	  }else {
-	    printf("No route to host\n");
+	    printf("No route to host (%i active sessions)\n",(int)sessions.size());
 	  }
   }
   void SendPacketRouted(const Session& route, unsigned char* packet, size_t sz, unsigned char ttl, const GlobalGrid::Guid& dest) {

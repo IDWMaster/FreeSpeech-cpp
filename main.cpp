@@ -29,7 +29,6 @@
 
 
 
-
 int main(int argc, char** argv) {
 
   
@@ -102,6 +101,15 @@ if(argc>1) {
   printf("Successfully imported key with thumbprint %s\n",thumbprint);
   
       return 0;
+    }else {
+      if(strcmp(argv[1],"help") == 0) {
+	printf("GlobalGrid Routing Demon -- usage");
+	printf("\n\n%s export -- Exports your public encryption key to stdout. The resulting key can be imported using the %s import command.\n",argv[0],argv[0]);
+	printf("%s import -- Imports a public key from stdin. Once imported; it will be possible to communicate directly with this peer.\n",argv[0]);
+	printf("%s ip6Addr udpPortNo thumbprint listenIP6Addr listenPort -- Initializes the GlobalGrid routing daemon, seeding peer information from the specified host.\n",argv[0]);
+	printf("%s -- Starts GlobalGrid in autonomous mode. The GlobalGrid routing daemon will act as a client; establishing connections based off of information found in the routing database (known peers).\n",argv[0]);
+	return 0;
+      }
     }
   }
 }
@@ -272,6 +280,14 @@ multicastAnnouncer->Send(announcement,1,dest);
 System::SetInterval([&](){
   multicastAnnouncer->Send(announcement,1,dest);
 },10000);
+
+//Start GG service
+printf("Starting GlobalGrid routing demon....\n");
+System::Net::CreateIPCServer("/tmp/gg-host",System::Net::F2IPCCB([=](const std::shared_ptr<System::IO::Stream>& str){
+  printf("Got client?");
+  
+}));
+//TODO: Research Unix Domain Sockets
 
 System::Enter();
 
