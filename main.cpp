@@ -119,7 +119,10 @@ char thumbprint[33];
 thumbprint[32] = 0;
 RSA_thumbprint(privkey,thumbprint);
 printf("Your private key thumbprint is %s\n",thumbprint);
-void* router = GlobalGrid::GlobalGrid_InitRouter(privkey);
+void* router = GlobalGrid::GlobalGrid_InitRouter(privkey,System::Net::F2UDPCB([=](const System::Net::UDPCallback& cb){
+  printf("received application packet!\n");
+  
+}));
 
 
 
@@ -208,12 +211,12 @@ GlobalGrid::Buffer_Get(pubkey_buffer,&pubkey_bytes,&pubkey_size);
 unsigned char _recvBuffer[4096];
 unsigned char* recvBuffer = _recvBuffer;
 std::shared_ptr<System::Net::UDPCallback> cb = System::Net::F2UDPCB([&](System::Net::UDPCallback& results){
-  printf("Received multicast packet len = %i\n",(int)results.outlen);
+  //printf("Received multicast packet len = %i\n",(int)results.outlen);
   
   switch(recvBuffer[0]) {
     case 0:
     {
-      printf("Ident request\n");
+      //printf("Ident request\n");
       //Ident request
       unsigned char* response = new unsigned char[1+2+pubkey_size];
       response[0] = 1;

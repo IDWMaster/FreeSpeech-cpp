@@ -122,6 +122,7 @@ public:
   
 };
 
+
 class GGRouter:public IDisposable {
 public:
   void* privkey;
@@ -135,6 +136,7 @@ public:
   GlobalGrid::Guid localGuid;
   size_t knownPeers_size;
   unsigned char* knownPeers; //Known peers
+  std::shared_ptr<System::Net::UDPCallback> callback;
   void balance() {
     //TODO: Lukeup known VSockets in database
     size_t handcount = 0;
@@ -300,7 +302,8 @@ public:
       knownHosts_index.insert(host);
     }
   }
-  GGRouter(void* privkey) {
+  GGRouter(void* privkey, const std::shared_ptr<System::Net::UDPCallback>& callback) {
+    this->callback = callback;
     
     knownPeers = (unsigned char*)MMAP_Map("known_hosts",knownPeers_size,knownpeers_fd);
     this->privkey = privkey;
@@ -631,6 +634,17 @@ public:
 		}
 	      }
 		break;
+	      case 2:
+	      {
+		//Application data
+		
+		this->callback->receivedFrom.ip.raw[0] = session.claimedThumbprint[0];
+		this->callback->receivedFrom.ip.raw[1] = session.claimedThumbprint[1];
+		this->callback->outlen = packetLength-1;
+		this->callback->Process();
+		
+	      }
+		break;
 	    }
 	    return;
 	  }
@@ -789,7 +803,7 @@ void GlobalGrid::GlobalGrid_RegisterProtocolDriver(void* connectionManager, std:
 }
 
 
-void* GlobalGrid::GlobalGrid_InitRouter(void* encryptionKey)
+void* GlobalGrid::GlobalGrid_InitRouter(void* encryptionKey,const std::shared_ptr<System::Net::UDPCallback>& callback)
 {
-  return new GGRouter(encryptionKey);
+  return new GGRouter(encryptionKey,callback);
 }

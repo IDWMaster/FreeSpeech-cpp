@@ -21,6 +21,7 @@
 #include <stddef.h>
 #include <memory>
 #include <string.h>
+#include <cppext/cppext.h>
 namespace GlobalGrid {
 
 
@@ -70,6 +71,8 @@ public:
 };
 
 
+
+
 void* Buffer_Create(size_t sz);
 void Buffer_Get(void* buffer,void** out, size_t* sz);
 
@@ -81,7 +84,7 @@ static inline void Buffer_Get(void* buffer, T** out, size_t* sz) {
 void GGObject_Free(void* obj);
 bool GlobalGrid_HasRoute(void* connectionManager,const Guid& dest);
 void GlobalGrid_NtfyPacket(void* connectionManager, std::shared_ptr<VSocket>, unsigned char* packet, size_t packetlength);
-void* GlobalGrid_InitRouter(void* encryptionKey);
+void* GlobalGrid_InitRouter(void* encryptionKey, const std::shared_ptr<System::Net::UDPCallback>& onPacketReceived);
 void GlobalGrid_RegisterProtocolDriver(void* connectionManager,std::shared_ptr<ProtocolDriver> driver);
 void GlobalGrid_InitiateHandshake(void* connectionManager, std::shared_ptr<VSocket> socket, void* remoteKey);
 void GlobalGrid_SendPacket(void* connectionManager, const Guid& dest, unsigned char* data, size_t sz);
